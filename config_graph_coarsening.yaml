@@ -1,0 +1,29 @@
+---
+mc_fileloc: "mc_input_data\\" # mode choice model input dictionary
+
+
+# epsilon-Uniform partition setting
+E-UNIFORM: True # True if use epsilon-uniform partition
+epsilon: 2 # parameter controls the upper bound of partition size for epsilon-uniform partition
+
+# Graph coarsening model parameters
+S: 69
+K: 30
+
+# Gurobi parameters
+TIME_LIMIT: 2000
+MIP_GAP: 0.0
+
+
+# Utility file location
+Station_agg: "Data\\temp\\Station_agg.p" # agg station info filepath
+Station: "Data\\temp\\Station.p" # disagg station info filepath
+G_t_agg: "Data\\temp\\G_t_agg.p" # travel time for agg zone filepath
+G_d_agg: "Data\\temp\\G_d_agg.p" # travel distance for agg zone filepath
+G_t: "Data\\temp\\G_t.p" # travel time for disagg zone filepath
+G_d: "Data\\temp\\G_d.p"  # travel distance for disagg zone filepath
+
+id_converter: "Data\\id_converter.p"  # ID converter from zone id to GEOID filepath
+id_converter_reverse: "Data\\id_converter_reverse.p"  # reversed ID converter from GEOID to zone id filepath
+agg_2_disagg_id: "Data\\agg_2_disagg_id.p" # ID converter from agg zone id to disagg zone id filepath
+disagg_2_agg_id: "Data\\disagg_2_agg_id.p"  # ID converter from disagg zone id to agg zone id filepath

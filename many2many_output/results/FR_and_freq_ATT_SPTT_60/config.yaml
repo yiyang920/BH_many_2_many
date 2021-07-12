@@ -1,0 +1,44 @@
+BUILD_ON: false
+DEBUG_MODE: false
+DELTA_t: 1
+E-UNIFORM: true
+EPSILON: 1.0
+FIXED_ROUTE: true
+G_d: Data\temp\G_d.p
+G_d_agg: Data\temp\G_d_agg.p
+G_t: Data\temp\G_t.p
+G_t_agg: Data\temp\G_t_agg.p
+ITER_LIMIT_M2M_GC: 1
+ITER_LIMIT_MC_M2M: 1
+ITR_M2M_GC: 0
+ITR_MC_M2M: 0
+K: 20
+LAMBDA: 0.33
+MIP_GAP: 0.1
+MIP_GAP_GC: 0.2
+PENALIZE_RATIO: true
+REPEATED_TOUR: true
+S: 38
+S_disagg: 69
+Station: Data\temp\Station.p
+Station_agg: Data\temp\Station_agg.p
+T: 185
+THETA: 0.0
+TIME_LIMIT: .inf
+TIME_LIMIT_GC: .inf
+VEH_CAP: 16
+agg_2_disagg_id: Data\agg_2_disagg_id.p
+beta: 0
+build_on_list:
+  4: new_fr_1_disagg.csv
+disagg_2_agg_id: Data\disagg_2_agg_id.p
+driver_set:
+- 4
+figure_pth: many2many_output\figure\FR_and_freq_ATT_SPTT_60\
+flex_od_driver: null
+id_converter: Data\id_converter.p
+id_converter_reverse: Data\id_converter_reverse.p
+m2m_data_loc: many2many_data\FR_and_freq_ATT_SPTT_60\
+m2m_output_loc: many2many_output\results\FR_and_freq_ATT_SPTT_60\
+mc_fileloc: mc_input_data\
+shapefile_zone_id: Data\shapefile\zone_id.shp

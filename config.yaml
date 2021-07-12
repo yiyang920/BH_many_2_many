@@ -1,0 +1,61 @@
+---
+DEBUG_MODE: False
+
+mc_fileloc: "mc_input_data\\" # mode choice model input dictionary
+m2m_data_loc: "many2many_data\\FR_and_1_test\\" # many to many model input dictionary
+m2m_output_loc: "many2many_output\\results\\FR_and_1_test\\" # many to many model output dictionary
+figure_pth: "many2many_output\\figure\\FR_and_1_test\\" # figure path
+
+driver_set: # new route's driver id
+  - 4
+  # - 5
+  # - 6
+  # - 7
+  # - 8
+  # - 9
+  # - 0
+  # - 1
+  # - 2
+  # - 3
+build_on_list: # optimization based on previous optimized route
+  4: "new_fr_1_agg.csv" 
+  5: "new_fr_2_agg.csv" 
+  6: "new_fr_3_agg.csv"
+  7: "new_fr_4_agg.csv"
+  8: "new_fr_5_agg.csv"
+
+BUILD_ON: False # optimization based on previous optimized route
+FIXED_ROUTE: True # combined with existing fixed routes
+REPEATED_TOUR: True # true if optimize bus tour, otherwise flex route
+PENALIZE_RATIO: True # penalize ATT-SPTT ratio in objective
+
+# Many-to-many model parameters
+S: 39 # number of aggregated zones
+S_disagg: 69 # number of disaggregated zones
+T: 185 # time horizon
+DELTA_t: 1 # discrete time interval in minutes
+beta: 0 # x DELTA_t (mins) time flexibility budget
+VEH_CAP: 16 # vehicle capacity
+LAMBDA: 0.33 # penalization coefficient for ATT-SPTT ratio term
+
+# Gurobi parameters
+TIME_LIMIT: .inf
+MIP_GAP: 0.1
+
+
+ITER_LIMIT: 10 # number of mc-m2m iteration
+
+
+# Utility file location
+Station_agg: "Data\\temp\\Station_agg.p" # agg station info filepath
+Station: "Data\\temp\\Station.p" # disagg station info filepath
+G_t_agg: "Data\\temp\\G_t_agg.p" # travel time for agg zone filepath
+G_d_agg: "Data\\temp\\G_d_agg.p" # travel distance for agg zone filepath
+G_t: "Data\\temp\\G_t.p" # travel time for disagg zone filepath
+G_d: "Data\\temp\\G_d.p"  # travel distance for disagg zone filepath
+
+id_converter: "Data\\id_converter.p"  # ID converter from zone id to GEOID filepath
+id_converter_reverse: "Data\\id_converter_reverse.p"  # reversed ID converter from GEOID to zone id filepath
+agg_2_disagg_id: "Data\\agg_2_disagg_id.p" # ID converter from agg zone id to disagg zone id filepath
+disagg_2_agg_id: "Data\\disagg_2_agg_id.p"  # ID converter from disagg zone id to agg zone id filepath
+shapefile_zone_id: "Data\\shapefile\\zone_id.shp"  # zone_id.shp shapefile 

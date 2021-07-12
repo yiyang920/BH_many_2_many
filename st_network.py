@@ -38,8 +38,6 @@ def One2Many(Rider, Driver, tau, tau2, ctr, config):
     beta = config["beta"]
     S = config["S"]
     T = config["T"]
-    T = range(10)
-    T0 = [0, 4, 9]
     Tmin = np.min(np.r_[Rider[:, 2], Driver[:, 2]])
     Tmax = np.max(np.r_[Rider[:, 3], Driver[:, 3]])
     # Time expanded network
@@ -68,6 +66,9 @@ def One2Many(Rider, Driver, tau, tau2, ctr, config):
 
     V_r = {r: 5 for r in R}  # num of transfer limit
 
+    # T_d should be for the first single tour for the each driver, not for the entire time horizon
+    # TW_d should be the time window for the first single tour
+    # ED_d, LA_d should be earliest departure/latest arrival time for the first tour
     D, O_d, D_d, ED_d, LA_d, SP_d, TW_d, T_d = gp.multidict(
         {
             d: [
@@ -84,53 +85,28 @@ def One2Many(Rider, Driver, tau, tau2, ctr, config):
     )
     d_p = len(Driver)  # ID of the dummy driver
     D.add(d_p)
-    # Set the last driver as the dummy driver (enable waiting and transfer)
-    # Defaut dummy driver ID is the last driver ID plus 1 in driver set D, need to be unique
-    # if config["EnableTransfer"]:
-    #     (
-    #         D_prime,
-    #         O_d_prime,
-    #         D_d_prime,
-    #         ED_d_prime,
-    #         LA_d_prime,
-    #         SP_d_prime,
-    #         TW_d_prime,
-    #         T_d_prime,
-    #     ) = (D, O_d, D_d, ED_d, LA_d, SP_d, TW_d, T_d)
-
-    #     D_prime.add(D[-1] + 1)
-    #     # (
-    #     D_prime[-1],
-    #     O_d_prime[-1],
-    #     D_d_prime[-1],
-    #     ED_d_prime[-1],
-    #     LA_d_prime[-1],
-    #     SP_d_prime[-1],
-    #     TW_d_prime[-1],
-    #     T_d_prime[-1],
-    # ) = (
-    #     D[-1] + 1,
-    #     O_d[-1],
-    #     D_d[-1],
-    #     ED_d[-1],
-    #     LA_d[-1],
-    #     SP_d[-1],
-    #     TW_d[-1],
-    #     T_d[-1],
-    # )
 
     pick = {
-        (r, d): np.maximum(ED_d[d] + tau[O_d[d], O_r[r]], ED_r[r]) for r in R for d in D
-    }
-    drop = {(r, d): pick[r, d] + tau[O_r[r], D_r[r]] for r in R for d in D}
-    finish = {(r, d): drop[r, d] + tau[D_r[r], D_d[d]] for r in R for d in D}
+        (r, d): np.maximum(ED_d[d] + tau[O_d[d], O_r[r]], ED_r[r])
+        for r in R
+        for d in D
+        if d != d_p
+    }  # ???
+    drop = {
+        (r, d): pick[r, d] + tau[O_r[r], D_r[r]] for r in R for d in D if d != d_p
+    }  # ???
+    finish = {
+        (r, d): drop[r, d] + tau[D_r[r], D_d[d]] for r in R for d in D if d != d_p
+    }  # ???
     RD = {
         (r, d) for r in R for d in D if drop[r, d] <= LA_r[r] if finish[r, d] <= LA_d[d]
     }
     RD = RD | set((r, d_p) for r in R)
     drop2 = {
-        (r, d): np.minimum(LA_r[r], LA_d[d] - tau[D_r[r], D_d[d]]) for (r, d) in RD
-    }
+        (r, d): np.minimum(LA_r[r], LA_d[d] - tau[D_r[r], D_d[d]])
+        for (r, d) in RD
+        if d != d_p
+    }  # ???
     # ---------------------------------------------------------
     SN_r = {r: set((ED_r[r] + b) * S + O_r[r] for b in range(beta + 1)) for r in R}
     EN_r = {r: set((LA_r[r] - b) * S + D_r[r] for b in range(beta + 1)) for r in R}
@@ -139,7 +115,6 @@ def One2Many(Rider, Driver, tau, tau2, ctr, config):
     # %%
     for d in D:
         # reduced network
-        # L_d[d] = set()
         for m in range(T // TW_d[d]):
             Gs = list(np.where(tau[O_d[d], :] + tau[:, D_d[d]] <= TW_d[d])[0])
             N_d[d] = set()
@@ -149,17 +124,19 @@ def One2Many(Rider, Driver, tau, tau2, ctr, config):
                     (ED_d[d] + tau[O_d[d], s] <= T_d[d])
                     & (T_d[d] + tau[s, D_d[d]] <= LA_d[d])
                 )[0]
-                if s == O_d[d]:
-                    SN_d[d] = T_d[d][ind] * S + s
-                elif s == D_d[d]:
-                    EN_d[d] = T_d[d][ind] * S + s
+                if s == O_d[d] and m == 0:
+                    SN_d[d] = T_d[d][ind] * S + s  # need to be the first origin node
+                elif s == D_d[d] and m == T // TW_d[d] - 1:
+                    EN_d[d] = (
+                        T_d[d][ind] + m * TW_d[d]
+                    ) * S + s  # need to be the last destination node
                 else:
-                    MN_d[d].update(T_d[d][ind] * S + s)
-                N_d[d].update(T_d[d][ind] * S + s)  # end for loop
+                    MN_d[d].update((T_d[d][ind] + m * TW_d[d]) * S + s)
+                N_d[d].update((T_d[d][ind] + m * TW_d[d]) * S + s)  # end for loop
 
-            TN_d = TN.subgraph(N_d[d])
-            L_d[d] = set(TN_d.edges())
-            SN_d[d] = T_d[d][0] * S + O_d[d]
+        TN_d = TN.subgraph(N_d[d])
+        L_d[d] = set(TN_d.edges())
+        SN_d[d] = T_d[d][0] * S + O_d[d]  # need to be the first origin node
         # %%
         for r in R:
             if (r, d) in RD:
@@ -205,6 +182,16 @@ def One2Many(Rider, Driver, tau, tau2, ctr, config):
     y = m.addVars(RDL_rd, vtype=GRB.BINARY, name="y")
     u = m.addVars(RD, vtype=GRB.BINARY, name="u")
     z = m.addVars(R, vtype=GRB.BINARY, name="z")
+
+    # fixed-route setting
+    if config["FIXED_ROUTE"]:  # TO DO
+        Route = {d: list((n1, n2)) for d in fixed_route_D}
+        for d in Route.keys():
+            for (n1, n2) in Route[d]:
+                x[d, n1, n2].lb = 1
+                x[d, n1, n2].ub = 1
+        m.update()
+
     ### Objective ###
     m.setObjective(
         z.sum(), GRB.MAXIMIZE,
@@ -321,7 +308,7 @@ def One2Many(Rider, Driver, tau, tau2, ctr, config):
 
     m.addConstrs((u.sum(r, "*") - 1 - V_r[r] <= 0 for r in R), "tranfer_limit")
 
-    # fixed route constraint
+    # fixed route constraint 1
     m.addConstrs(
         (
             x[d, n1, n2] - x[d, n1 - T0 * S, n2 - T0 * S] == 0
@@ -329,8 +316,15 @@ def One2Many(Rider, Driver, tau, tau2, ctr, config):
             if n1 >= T0 * S
             if n2 >= T0 * S
         ),
-        "fix_route",
+        "fix_route1",
     )
+    # fixed route constraint 2
+    # m.addConstrs(
+    #     (
+
+    #     ),
+    #     "fix_route2",
+    # )
 
     m.params.TimeLimit = TL
     m.params.MIPGap = 0.05
@@ -363,11 +357,3 @@ def One2Many(Rider, Driver, tau, tau2, ctr, config):
 
 # sum(z[r].x for r in R) / len(R)
 
-
-#%% before the m.optimize
-Route = {d: list((n1, n2)) for d in fixed_route_D}
-for d in Route.keys():
-    for (n1, n2) in Route[d]:
-        x[d, n1, n2].lb = 1
-        x[d, n1, n2].ub = 1
-m.update()

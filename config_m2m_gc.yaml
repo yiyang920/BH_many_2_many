@@ -1,0 +1,75 @@
+---
+DEBUG_MODE: False
+
+mc_fileloc: "mc_input_data\\" # mode choice model input dictionary
+m2m_data_loc: "many2many_data\\no_FR_1_BO_ATT_SPTT\\" # many to many model input dictionary
+m2m_output_loc: "many2many_output\\results\\no_FR_1_BO_ATT_SPTT_test\\" # many to many model output dictionary
+figure_pth: "many2many_output\\figure\\no_FR_1_BO_ATT_SPTT_test\\" # figure path
+
+flex_od_driver: # driver list with flex OD, bus mode or dial-a-ride mode
+  # - 0 
+  # - 1
+  # - 4
+driver_set: # list of new route's driver id
+  - 0
+  # - 5
+  # - 6
+  # - 7
+  # - 8
+  # - 9
+  # - 0
+  # - 1
+  # - 2
+  # - 3
+build_on_list: # optimization based on previous optimized route
+  4: "new_fr_1_disagg.csv" 
+  # 5: "new_fr_2_disagg.csv" 
+  # 6: "new_fr_3_disagg.csv"
+  # 7: "new_fr_4_disagg.csv"
+  # 8: "new_fr_5_disagg.csv"
+
+BUILD_ON: False # optimization based on previous optimized route
+FIXED_ROUTE: False
+REPEATED_TOUR: True
+PENALIZE_RATIO: True # penalize ATT-SPTT ratio in objective
+
+# epsilon-Uniform partition setting
+E-UNIFORM: True # True if use epsilon-uniform partition
+EPSILON: 2 # parameter controls the upper bound of partition size for epsilon-uniform partition
+
+# Graph coarsening model parameters
+S_disagg: 69 # number of aggregated zones
+K: 35 # upper bound of number of partitions
+
+T: 185 # time horizon
+T_post_processing: 70 # time horizon for disaggregating routes
+DELTA_t: 1 # discrete time interval in minutes
+beta: 0 # x DEPRECIATED: DELTA_t (mins) time flexibility budget
+VEH_CAP: 16 # vehicle capacity
+LAMBDA: 0.33 # penalization coefficient for ATT-SPTT ratio term
+THETA: 10 # penalization coefficient of graph coarsening objective function
+
+# Gurobi parameters of m2m model
+TIME_LIMIT: .inf # seconds
+MIP_GAP: 0.1
+
+# Gurobi parameters of graph coarsening model
+TIME_LIMIT_GC: 200 # seconds
+MIP_GAP_GC: 0.1
+
+ITER_LIMIT_MC_M2M: 3 # limit of mc-m2m iteration
+ITER_LIMIT_M2M_GC: 1 # limit of m2m-gc iteration
+
+# Utility file location
+Station_agg: "Data\\temp\\Station_agg.p" # agg station info filepath
+Station: "Data\\temp\\Station.p" # disagg station info filepath
+G_t_agg: "Data\\temp\\G_t_agg.p" # travel time for agg zone filepath
+G_d_agg: "Data\\temp\\G_d_agg.p" # travel distance for agg zone filepath
+G_t: "Data\\temp\\G_t.p" # travel time for disagg zone filepath
+G_d: "Data\\temp\\G_d.p"  # travel distance for disagg zone filepath
+
+id_converter: "Data\\id_converter.p"  # ID converter from zone id to GEOID filepath
+id_converter_reverse: "Data\\id_converter_reverse.p"  # reversed ID converter from GEOID to zone id filepath
+agg_2_disagg_id: "Data\\agg_2_disagg_id.p" # ID converter from agg zone id to disagg zone id filepath
+disagg_2_agg_id: "Data\\disagg_2_agg_id.p"  # ID converter from disagg zone id to agg zone id filepath
+shapefile_zone_id: "Data\\shapefile\\zone_id.shp"  # zone_id.shp shapefile 
