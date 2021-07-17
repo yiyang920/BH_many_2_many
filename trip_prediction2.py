@@ -16,7 +16,7 @@ Modes:
 # FN:calculate mode choice logsums
 # There are two mode choice models;
 # one for shopping trip purposes and one for all other trip purposes
-def mc_utilities(mdot_per_dat, ascs, skims) -> float:
+def mc_utilities(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
 
     worker = mdot_per_dat["emp"] == 1
     health = mdot_per_dat["purpose"] == 12
@@ -121,7 +121,7 @@ def mc_utilities(mdot_per_dat, ascs, skims) -> float:
     return np.log(sum([av_wk * np.exp(scale * u_walk), exp_ls_auto, exp_ls_transit]))
 
 
-def mc_utilities_shop(mdot_per_dat, ascs, skims) -> float:
+def mc_utilities_shop(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
 
     elder = mdot_per_dat["age"] > 4
     woman = mdot_per_dat["gender"] == 2
@@ -393,7 +393,7 @@ def mc_probs_shop(mdot_per_dat, ascs, skims) -> tuple:
 
 
 # FN:calculate destination choice utility
-def dc_utility(dis, emp, mcls) -> float:
+def dc_utility(dis: float, emp: float, mcls: float) -> float:
     # parameters
     # b_dist = -0.6000
     b_mcls = 1.00
@@ -402,7 +402,23 @@ def dc_utility(dis, emp, mcls) -> float:
     return np.exp(b_size * np.log(emp + 1) + b_mcls * mcls)
 
 
-def trip_prediction(id_converter: dict, mdot_dat: object, stop_zones: set):
+def trip_prediction(
+    id_converter: dict,
+    mdot_dat: object,
+    stop_zones: set,
+    per_ddist: object,
+    per_tdist: object,
+    per_drtt: object,
+    per_bustt: object,
+    per_wktt: object,
+    per_emp: object,
+    dests_geo: object,
+    gm_autodist: object,
+    gm_transdist: object,
+    gm_autoTT: object,
+    gm_transTT: object,
+    gm_wkTT: object,
+):
     # Data Prep
     # Filter trips traveling in bus zones
     id_converter_rev = {geoid: zoneid for zoneid, geoid in id_converter.items()}
@@ -416,9 +432,87 @@ def trip_prediction(id_converter: dict, mdot_dat: object, stop_zones: set):
             mdot_dat_busz.append(mdot_dat.loc[i, :])
 
     N = len(mdot_dat_busz)
-
+    N_MODE = 10
     # convert mode IDs
     mdot_dat_busz["modeid"] = mdot_dat_busz.mode.apply(
         lambda x: 0 if x == 1 else 4 if x == 4 else 3 if x == 5 else 1 if x == 8 else 2
     )
-    # TODO: I AM HERE!
+
+    # Calculate MCLS for each person trip
+    mcls = np.zeros((N, N_MODE))
+    shop_ascs = (-1.218793, -9.075928, -10.991232, -1.192324, 0.000000)
+    other_ascs = (-0.6818053, -8.4196311, -8.0848393, -1.0033526, 0.0000000)
+
+    # MCLS
+    for i in range(N):
+        for j in range(N_MODE):
+            skims = (
+                per_ddist.iloc[i, j],
+                per_tdist.iloc[i, j],
+                per_drtt.iloc[i, j],
+                per_bustt.iloc[i, j],
+                per_wktt.iloc[i, j],
+            )
+
+        if 7 < mdot_dat_busz.purpose.iloc[i] <= 10:
+            mcls[i, j] = mc_utilities_shop(
+                mdot_dat_busz.iloc[i, :],
+                shop_ascs,
+                skims,
+            )
+        else:
+            mcls[i, j] = mc_utilities(mdot_dat_busz.iloc[i, :], other_ascs, skims)
+
+    # Calculate Destination Choice Probabilities
+    exp_u_holder = np.zeros((1, N_MODE))
+    dc_prob = np.zeros((N, N_MODE))
+
+    for i in range(N):
+        for j in range(N_MODE):
+            exp_u_holder[j] = dc_utility(
+                per_ddist.iloc[i, j], per_emp.iloc[i, j], mcls[i, j]
+            )
+            dc_prob[i, 0:-1] = exp_u_holder[0:-1] / np.sum(exp_u_holder)
+            dc_prob[i, -1] = 1 - np.sum(dc_prob[i, 0:-1])
+
+    # Expansion
+    # Predict all trip destination volumes: Output OD matrix for all trip volumes
+    trips_mat = dict()
+    for trip in range(len(mdot_dat_busz)):
+        geoid_o = mdot_dat_busz.geoid_o.iloc[trip]
+        for mode in range(N_MODE):
+            geoid_d = dests_geo.iloc[trip, mode]
+            id_o, id_d = id_converter[geoid_o], id_converter[geoid_d]
+            trips_mat.setdefault((id_o, id_d), 0)
+            trips_mat[id_o, id_d] += (
+                dc_prob[trip, mode] * mdot_dat_busz.weight.iloc[trip]
+            )
+
+    # Predict all transit volumes by Destination:
+    # Output OD matrix for transit (Bus + DialARide) trip volumes
+    transit_trips_mat, t_probs = dict(), dict()
+    for trip in range(len(mdot_dat_busz)):
+        geoid_o = mdot_dat_busz.geoid_o.iloc[trip]
+        for mode in range(N_MODE):
+            geoid_d = dests_geo.iloc[trip, mode]
+            id_o, id_d = id_converter[geoid_o], id_converter[geoid_d]
+            skims = (
+                (gm_autodist.loc[geoid_o, str(geoid_d)] + 0.1) * 0.62137,
+                (gm_transdist[geoid_o, str(geoid_d)] + 0.1) * 0.62137,
+                (gm_autoTT[geoid_o, str(geoid_d)] + 0.1065206),
+                (gm_transTT[geoid_o, str(geoid_d)] + 0.1331507),
+                (gm_wkTT[geoid_o, str(geoid_d)] + 1.331507),
+            )  # Add min dist and convert to miles
+
+            if 7 < mdot_dat_busz.purpose.iloc[i] <= 10:
+                p = mc_probs_shop(mdot_dat_busz.iloc[trip, :], shop_ascs, skims)
+            else:
+                p = mc_probs(mdot_dat_busz.iloc[trip, :], other_ascs, skims)
+
+            t_probs.setdefault(geoid_o, list()).append(
+                list(p) + [mdot_dat_busz.weight.iloc[trip]]
+            )
+
+    # for i in id_converter.keys():
+    #     for j in range(N_MODE):
+    #         rows =
