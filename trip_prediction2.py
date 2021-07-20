@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 import pickle
 import csv
 
@@ -16,12 +17,14 @@ Modes:
 # FN:calculate mode choice logsums
 # There are two mode choice models;
 # one for shopping trip purposes and one for all other trip purposes
-def mc_utilities(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
+def mc_utilities(mdot_per_dat: pd.DataFrame, ascs: tuple, skims: tuple) -> float:
 
     worker = mdot_per_dat["emp"] == 1
     health = mdot_per_dat["purpose"] == 12
     elder = mdot_per_dat["age"] > 4
     woman = mdot_per_dat["gender"] == 2
+    noLow = mdot_per_dat["income"] > 2
+    medInc = 2 < mdot_per_dat["income"] < 5
 
     # Parameters
     scale = (
@@ -51,20 +54,20 @@ def mc_utilities(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
     B_womenShare = 0.730061
 
     wk_time = skims[4]
-    bus_time = skims[3]
-    dar_time = (skims[0] / 30) * 60
-    auto_time = skims[2]
+    bus_time = skims[3] * medInc
+    dar_time = (skims[0] / 30) * 60 * medInc
+    auto_time = skims[2] * medInc
 
-    bus_cost = 1 + (skims[1] * 0.05)
-    dar_cost = 2 + (skims[0] * 0.1)
-    share_cost = (skims[0] * 0.6) / 2.5
-    drive_cost = skims[0] * 0.6
+    bus_cost = (1 + (skims[1] * 0.05)) * noLow
+    dar_cost = (2 + (skims[0] * 0.1)) * noLow
+    share_cost = ((skims[0] * 0.6) / 2.5) * medInc
+    drive_cost = (skims[0] * 0.6) * medInc
 
-    av_wk = 1
-    av_dar = 1
-    av_bus = 1
-    av_share = 1
-    av_auto = 1
+    av_wk = mdot_per_dat["av_wk"]
+    av_dar = mdot_per_dat["av_dar"]
+    av_bus = mdot_per_dat["av_bus"]
+    av_share = int(mdot_per_dat["hh_auto"] > 0)
+    av_auto = mdot_per_dat["av_auto"]
 
     mu_transit = 1.59
     mu_auto = 1.15
@@ -105,6 +108,7 @@ def mc_utilities(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
             np.log(
                 av_bus * np.exp(scale * mu_transit * u_bus)
                 + av_dar * np.exp(scale * mu_transit * u_dar)
+                + 1e-20
             )
         )
         / mu_transit
@@ -114,6 +118,7 @@ def mc_utilities(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
             np.log(
                 av_auto * np.exp(scale * mu_auto * u_drive)
                 + av_share * np.exp(scale * mu_auto * u_share)
+                + 1e-20
             )
         )
         / mu_auto
@@ -121,10 +126,12 @@ def mc_utilities(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
     return np.log(sum([av_wk * np.exp(scale * u_walk), exp_ls_auto, exp_ls_transit]))
 
 
-def mc_utilities_shop(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
+def mc_utilities_shop(mdot_per_dat: pd.DataFrame, ascs: tuple, skims: tuple) -> float:
 
     elder = mdot_per_dat["age"] > 4
     woman = mdot_per_dat["gender"] == 2
+    noLow = mdot_per_dat["income"] > 2
+    medInc = 2 < mdot_per_dat["income"] < 5
 
     # Parameters
     scale = (
@@ -150,20 +157,20 @@ def mc_utilities_shop(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
     B_womenWalk = -6.22
 
     wk_time = skims[4]
-    bus_time = skims[3]
-    dar_time = (skims[0] / 30) * 60
-    auto_time = skims[2]
+    bus_time = skims[3] * medInc
+    dar_time = (skims[0] / 30) * 60 * medInc
+    auto_time = skims[2] * medInc
 
-    bus_cost = 1 + (skims[1] * 0.05)
-    dar_cost = 2 + (skims[0] * 0.1)
-    share_cost = (skims[0] * 0.6) / 2.5
-    drive_cost = skims[0] * 0.6
+    bus_cost = (1 + (skims[1] * 0.05)) * noLow
+    dar_cost = (2 + (skims[0] * 0.1)) * noLow
+    share_cost = ((skims[0] * 0.6) / 2.5) * medInc
+    drive_cost = (skims[0] * 0.6) * medInc
 
-    av_wk = 1
-    av_dar = 1
-    av_bus = 1
-    av_share = 1
-    av_auto = 1
+    av_wk = mdot_per_dat["av_wk"]
+    av_dar = mdot_per_dat["av_dar"]
+    av_bus = mdot_per_dat["av_bus"]
+    av_share = mdot_per_dat["hh_auto"] > 0
+    av_auto = mdot_per_dat["av_auto"]
 
     # mode utilities
     u_walk = asc_walk + B_time * wk_time + B_womenWalk * woman
@@ -186,11 +193,15 @@ def mc_utilities_shop(mdot_per_dat: object, ascs: tuple, skims: tuple) -> float:
 
 
 # FN:calculate mode Probabilities
-def mc_probs(mdot_per_dat, ascs, skims) -> tuple:
+def mc_probs(
+    mdot_per_dat: pd.DataFrame, ascs: tuple, skims: tuple
+) -> tuple[float, float, float, float, float]:
     worker = mdot_per_dat["emp"] == 1
     health = mdot_per_dat["purpose"] == 12
     elder = mdot_per_dat["age"] > 4
     woman = mdot_per_dat["gender"] == 2
+    noLow = mdot_per_dat["income"] > 2
+    medInc = 2 < mdot_per_dat["income"] < 5
 
     # Parameters
     scale = (
@@ -220,20 +231,20 @@ def mc_probs(mdot_per_dat, ascs, skims) -> tuple:
     B_womenShare = 0.730061
 
     wk_time = skims[4]
-    bus_time = skims[3]
-    dar_time = (skims[0] / 30) * 60
+    bus_time = skims[3] * medInc
+    dar_time = (skims[0] / 30) * 60 * medInc
     auto_time = skims[2]
 
-    bus_cost = 1 + (skims[1] * 0.05)
-    dar_cost = 2 + (skims[0] * 0.1)
-    share_cost = (skims[0] * 0.6) / 2.5
-    drive_cost = skims[0] * 0.6
+    bus_cost = (1 + (skims[1] * 0.05)) * noLow
+    dar_cost = (2 + (skims[0] * 0.1)) * noLow
+    share_cost = ((skims[0] * 0.6) / 2.5) * medInc
+    drive_cost = (skims[0] * 0.6) * medInc
 
-    av_wk = 1
-    av_dar = 1
-    av_bus = 1
-    av_share = 1
-    av_auto = 1
+    av_wk = mdot_per_dat["av_wk"]
+    av_dar = mdot_per_dat["av_dar"]
+    av_bus = mdot_per_dat["av_bus"]
+    av_share = mdot_per_dat["hh_auto"] > 0
+    av_auto = mdot_per_dat["av_auto"]
 
     mu_transit = 1.59
     mu_auto = 1.15
@@ -284,6 +295,7 @@ def mc_probs(mdot_per_dat, ascs, skims) -> tuple:
             np.log(
                 av_auto * np.exp(scale * mu_auto * u_drive)
                 + av_share * np.exp(scale * mu_auto * u_share)
+                + 1e-20
             )
         )
         / mu_auto
@@ -300,32 +312,40 @@ def mc_probs(mdot_per_dat, ascs, skims) -> tuple:
     ]
 
     foo = sum([utilities[6], utilities[5], utilities[0]])
-    p_trans = utilities[6] / foo if foo else float("inf")
+    p_trans = utilities[6] / foo if foo else np.inf
     foo = sum([utilities[6], utilities[5], utilities[0]])
-    p_auto = utilities[5] / foo if foo else float("inf")
+    p_auto = utilities[5] / foo if foo else np.inf
     foo = sum([utilities[6], utilities[5], utilities[0]])
-    p_wk = utilities[0] / foo if foo else float("inf")
+    p_wk = utilities[0] / foo if foo else np.inf
 
-    if p_trans > 0 and p_trans < float("inf"):
-        p_dar = (utilities[2] / sum([utilities[1], utilities[2]])) * p_trans
-        p_bus = (utilities[1] / sum([utilities[1], utilities[2]])) * p_trans
+    if p_trans > 0 and np.isfinite(p_trans):
+        foo = sum([utilities[1], utilities[2]])
+        p_dar = (utilities[2] / foo) * p_trans if foo else 0.0 * p_trans
+        p_bus = (utilities[1] / foo) * p_trans if foo else 0.0 * p_trans
     else:
-        p_dar = utilities[2] / sum([utilities[1], utilities[2]])
-        p_bus = utilities[1] / sum([utilities[1], utilities[2]])
+        foo = sum([utilities[1], utilities[2]])
+        p_dar = utilities[2] / foo if foo else 0.0
+        p_bus = utilities[1] / foo if foo else 0.0
 
-    if p_auto > 0 and p_auto < float("inf"):
-        p_drive = (utilities[4] / sum([utilities[3], utilities[4]])) * p_auto
-        p_share = (utilities[3] / sum([utilities[3], utilities[4]])) * p_auto
+    if p_auto > 0 and np.isfinite(p_auto):
+        foo = sum([utilities[3], utilities[4]])
+        p_drive = (utilities[4] / foo) * p_auto if foo else 0.0 * p_auto
+        p_share = (utilities[3] / foo) * p_auto if foo else 0.0 * p_auto
     else:
-        p_drive = utilities[4] / sum([utilities[3], utilities[4]])
-        p_share = utilities[3] / sum([utilities[3], utilities[4]])
+        foo = sum([utilities[3], utilities[4]])
+        p_drive = utilities[4] / foo if foo else 0.0
+        p_share = utilities[3] / foo if foo else 0.0
     return (p_wk, p_bus, p_dar, p_share, 1 - sum([p_wk, p_bus, p_dar, p_share]))
 
 
-def mc_probs_shop(mdot_per_dat, ascs, skims) -> tuple:
+def mc_probs_shop(
+    mdot_per_dat: pd.DataFrame, ascs: tuple, skims: tuple
+) -> tuple[float, float, float, float, float]:
 
     elder = mdot_per_dat["age"] > 4
     woman = mdot_per_dat["gender"] == 2
+    noLow = mdot_per_dat["income"] > 2
+    medInc = 2 < mdot_per_dat["income"] < 5
 
     # Parameters
     scale = (
@@ -351,20 +371,20 @@ def mc_probs_shop(mdot_per_dat, ascs, skims) -> tuple:
     B_womenWalk = -6.22
 
     wk_time = skims[4]
-    bus_time = skims[3]
-    dar_time = (skims[0] / 30) * 60
-    auto_time = skims[2]
+    bus_time = skims[3] * medInc
+    dar_time = (skims[0] / 30) * 60 * medInc
+    auto_time = skims[2] * medInc
 
-    bus_cost = 1 + (skims[1] * 0.05)
-    dar_cost = 2 + (skims[0] * 0.1)
-    share_cost = (skims[0] * 0.6) / 2.5
-    drive_cost = skims[0] * 0.6
+    bus_cost = (1 + (skims[1] * 0.05)) * noLow
+    dar_cost = (2 + (skims[0] * 0.1)) * noLow
+    share_cost = ((skims[0] * 0.6) / 2.5) * medInc
+    drive_cost = (skims[0] * 0.6) * medInc
 
-    av_wk = 1
-    av_dar = 1
-    av_bus = 1
-    av_share = 1
-    av_auto = 1
+    av_wk = mdot_per_dat["av_wk"]
+    av_dar = mdot_per_dat["av_dar"]
+    av_bus = mdot_per_dat["av_bus"]
+    av_share = mdot_per_dat["hh_auto"] > 0
+    av_auto = mdot_per_dat["av_auto"]
 
     # mode utilities
 
@@ -389,14 +409,14 @@ def mc_probs_shop(mdot_per_dat, ascs, skims) -> tuple:
     p_dar = utilities[2] / sum(utilities)
     p_share = utilities[3] / sum(utilities)
 
-    return (p_wk, p_bus, p_dar, p_share, 1 - sum(p_wk, p_bus, p_dar, p_share))
+    return (p_wk, p_bus, p_dar, p_share, 1 - sum((p_wk, p_bus, p_dar, p_share)))
 
 
 # FN:calculate destination choice utility
 def dc_utility(dis: float, emp: float, mcls: float) -> float:
     # parameters
     # b_dist = -0.6000
-    b_mcls = 1.00
+    b_mcls = 0.80
     b_size = 0.87
 
     return np.exp(b_size * np.log(emp + 1) + b_mcls * mcls)
@@ -404,21 +424,21 @@ def dc_utility(dis: float, emp: float, mcls: float) -> float:
 
 def trip_prediction(
     id_converter: dict,
-    mdot_dat: object,
+    mdot_dat: pd.DataFrame,
     stop_zones: set,
-    per_ddist: object,
-    per_tdist: object,
-    per_drtt: object,
-    per_bustt: object,
-    per_wktt: object,
-    per_emp: object,
-    dests_geo: object,
-    gm_autodist: object,
-    gm_transdist: object,
-    gm_autoTT: object,
-    gm_transTT: object,
-    gm_wkTT: object,
-):
+    per_ddist: pd.DataFrame,
+    per_tdist: pd.DataFrame,
+    per_drtt: pd.DataFrame,
+    per_bustt: pd.DataFrame,
+    per_wktt: pd.DataFrame,
+    per_emp: pd.DataFrame,
+    dests_geo: pd.DataFrame,
+    gm_autodist: pd.DataFrame,
+    gm_transdist: pd.DataFrame,
+    gm_autoTT: pd.DataFrame,
+    gm_transTT: pd.DataFrame,
+    gm_wkTT: pd.DataFrame,
+) -> dict[tuple[int, int] : float]:
     # Data Prep
     # Filter trips traveling in bus zones
     id_converter_rev = {geoid: zoneid for zoneid, geoid in id_converter.items()}
@@ -429,14 +449,16 @@ def trip_prediction(
             id_converter_rev[mdot_dat.loc[i, "geoid_o"]] in stop_zones
             and id_converter_rev[mdot_dat.loc[i, "geoid_d"]] in stop_zones
         ):
-            mdot_dat_busz.append(mdot_dat.loc[i, :])
+            mdot_dat_busz = mdot_dat_busz.append(mdot_dat.loc[i, :], ignore_index=True)
 
     N = len(mdot_dat_busz)
+    N_ZONE = len(id_converter)
     N_MODE = 10
     # convert mode IDs
-    mdot_dat_busz["modeid"] = mdot_dat_busz.mode.apply(
+    modeid = mdot_dat_busz["mode"].apply(
         lambda x: 0 if x == 1 else 4 if x == 4 else 3 if x == 5 else 1 if x == 8 else 2
     )
+    mdot_dat_busz["mode"] = modeid
 
     # Calculate MCLS for each person trip
     mcls = np.zeros((N, N_MODE))
@@ -463,9 +485,10 @@ def trip_prediction(
         else:
             mcls[i, j] = mc_utilities(mdot_dat_busz.iloc[i, :], other_ascs, skims)
 
-    # Calculate Destination Choice Probabilities
-    exp_u_holder = np.zeros((1, N_MODE))
+    # Predict all trip destination volumes: Output OD matrix for all trip volumes
     dc_prob = np.zeros((N, N_MODE))
+    exp_u_holder = np.zeros(N_MODE)
+    trips_mat = dict()
 
     for i in range(N):
         for j in range(N_MODE):
@@ -475,44 +498,116 @@ def trip_prediction(
             dc_prob[i, 0:-1] = exp_u_holder[0:-1] / np.sum(exp_u_holder)
             dc_prob[i, -1] = 1 - np.sum(dc_prob[i, 0:-1])
 
-    # Expansion
-    # Predict all trip destination volumes: Output OD matrix for all trip volumes
-    trips_mat = dict()
-    for trip in range(len(mdot_dat_busz)):
-        geoid_o = mdot_dat_busz.geoid_o.iloc[trip]
-        for mode in range(N_MODE):
-            geoid_d = dests_geo.iloc[trip, mode]
-            id_o, id_d = id_converter[geoid_o], id_converter[geoid_d]
-            trips_mat.setdefault((id_o, id_d), 0)
-            trips_mat[id_o, id_d] += (
-                dc_prob[trip, mode] * mdot_dat_busz.weight.iloc[trip]
-            )
+            # Which zone Indx is the origin?
+            o = id_converter_rev[mdot_dat_busz["geoid_o"].iloc[i]]
+            # Which zone Indx is the predicted destination?
+            d = id_converter_rev[dests_geo.iloc[i, np.argmax(dc_prob[i, :])]]
+            trips_mat.setdefault((o, d), 0)
+            trips_mat[o, d] += mdot_dat_busz["weight"].iloc[i]
 
-    # Predict all transit volumes by Destination:
-    # Output OD matrix for transit (Bus + DialARide) trip volumes
-    transit_trips_mat, t_probs = dict(), dict()
-    for trip in range(len(mdot_dat_busz)):
-        geoid_o = mdot_dat_busz.geoid_o.iloc[trip]
-        for mode in range(N_MODE):
-            geoid_d = dests_geo.iloc[trip, mode]
-            id_o, id_d = id_converter[geoid_o], id_converter[geoid_d]
-            skims = (
-                (gm_autodist.loc[geoid_o, str(geoid_d)] + 0.1) * 0.62137,
-                (gm_transdist[geoid_o, str(geoid_d)] + 0.1) * 0.62137,
-                (gm_autoTT[geoid_o, str(geoid_d)] + 0.1065206),
-                (gm_transTT[geoid_o, str(geoid_d)] + 0.1331507),
-                (gm_wkTT[geoid_o, str(geoid_d)] + 1.331507),
-            )  # Add min dist and convert to miles
+    bus_probs = np.zeros((N_ZONE, N_ZONE))
+    dar_probs = np.zeros((N_ZONE, N_ZONE))
+    mc_probs_h = np.zeros((N, N_ZONE, N_ZONE, 6))
 
-            if 7 < mdot_dat_busz.purpose.iloc[i] <= 10:
+    skims_dict = {
+        (zoneid_o, zoneid_d): (
+            (gm_autodist.loc[geoid_o, str(geoid_d)] + 0.1) * 0.62137,
+            (gm_transdist.loc[geoid_o, str(geoid_d)] + 0.1) * 0.62137,
+            (gm_autoTT.loc[geoid_o, str(geoid_d)] + 0.1065206),
+            (gm_transTT.loc[geoid_o, str(geoid_d)] + 0.1331507),
+            (gm_wkTT.loc[geoid_o, str(geoid_d)] + 1.331507),
+        )
+        for zoneid_o, geoid_o in id_converter.items()
+        for zoneid_d, geoid_d in id_converter.items()
+    }  # Add min dist and convert to miles
+
+    for (i, j), skims in skims_dict.items():
+        for trip in range(N):
+            if 7 < mdot_dat_busz["purpose"].iloc[trip] <= 10:
                 p = mc_probs_shop(mdot_dat_busz.iloc[trip, :], shop_ascs, skims)
             else:
                 p = mc_probs(mdot_dat_busz.iloc[trip, :], other_ascs, skims)
-
-            t_probs.setdefault(geoid_o, list()).append(
-                list(p) + [mdot_dat_busz.weight.iloc[trip]]
+            mc_probs_h[trip, i, j, :] = np.array(
+                list(p) + [mdot_dat_busz["weight"].iloc[trip]]
             )
 
-    # for i in id_converter.keys():
-    #     for j in range(N_MODE):
-    #         rows =
+    bus_probs[i, j] = np.round_(
+        np.sum(mc_probs_h[:, i, j, 1] * mc_probs_h[:, i, j, 5])
+        / np.sum(mc_probs_h[:, i, j, 5]),
+        decimals=7,
+    )
+
+    dar_probs[i, j] = np.round_(
+        np.sum(mc_probs_h[:, i, j, 2] * mc_probs_h[:, i, j, 5])
+        / np.sum(mc_probs_h[:, i, j, 5]),
+        decimals=7,
+    )
+
+    # Calculate Bus + Dar Volumes, by destination
+    ttrips_mat = dict()
+    for od, volumn in trips_mat.items():
+        ttrips_mat[od] = volumn * dar_probs[od] + volumn * bus_probs[od]
+
+    return ttrips_mat
+
+
+if __name__ == "__main__":
+    # %%
+    print("start testing...")
+    # id_converter = pickle.load(open("Data/id_converter.p", "rb"))
+
+    # Load data
+    mc_fileloc = "mc_input_data2/"
+
+    stop_zones_df = pd.read_csv(mc_fileloc + "stop_zones.csv")
+    stop_zones = set(stop_zones_df.loc[:, "stop_zones"])
+
+    D = pd.read_csv(mc_fileloc + "distance.csv", index_col=0)
+    id_converter = {i: idx for i, idx in enumerate(D.index)}
+
+    gm_transTT = pd.read_csv(mc_fileloc + "gm_transit_time_min.csv", index_col=0)
+    gm_transdist = pd.read_csv(mc_fileloc + "gm_transit_dist_km.csv", index_col=0)
+    gm_autoTT = pd.read_csv(mc_fileloc + "gm_auto_time_min.csv", index_col=0)
+    gm_autodist = pd.read_csv(mc_fileloc + "gm_auto_dist_km.csv", index_col=0)
+    gm_wkTT = pd.read_csv(mc_fileloc + "gm_walk_time_min.csv", index_col=0)
+    gm_wkdist = pd.read_csv(mc_fileloc + "gm_walk_dist_km.csv", index_col=0)
+    est_dat = pd.read_csv(mc_fileloc + "mc_dat_trips_miss.csv")
+    mdot_dat = est_dat.loc[est_dat["dat_id"] == 3, :]
+
+    per_emp = pd.read_csv(mc_fileloc + "dests_temp_trips.csv")
+    per_tdist = pd.read_csv(mc_fileloc + "tdists_dat_trips.csv")
+    dests_geo = pd.read_csv(mc_fileloc + "tdests_geoid_trips.csv")
+    per_ddist = pd.read_csv(mc_fileloc + "tdests_ddist_trips.csv")
+    per_bustt = pd.read_csv(mc_fileloc + "tdests_bustt_trips.csv")
+    per_drtt = pd.read_csv(mc_fileloc + "tdests_drtt_trips.csv")
+    per_wktt = pd.read_csv(mc_fileloc + "tdests_wktt_trips.csv")
+    # %%
+    ttrips_mat = trip_prediction(
+        id_converter,
+        mdot_dat,
+        stop_zones,
+        per_ddist,
+        per_tdist,
+        per_drtt,
+        per_bustt,
+        per_wktt,
+        per_emp,
+        dests_geo,
+        gm_autodist,
+        gm_transdist,
+        gm_autoTT,
+        gm_transTT,
+        gm_wkTT,
+    )
+
+    transit_trip = np.zeros((len(id_converter), len(id_converter)))
+    for (i, j), trips in ttrips_mat.items():
+        transit_trip[i, j] = trips
+
+    result_loc = "E:/Codes/BH_data_preprocess_and_DP/mc_output2/"
+    if not os.path.exists(result_loc):
+        os.makedirs(result_loc)
+
+    np.savetxt(result_loc + "transit_trips.csv", transit_trip, delimiter=",")
+
+# %%
