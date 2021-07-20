@@ -1,3 +1,4 @@
+from func_deco import my_timer
 import pandas as pd
 import numpy as np
 import os
@@ -108,7 +109,7 @@ def mc_utilities(mdot_per_dat: pd.DataFrame, ascs: tuple, skims: tuple) -> float
             np.log(
                 av_bus * np.exp(scale * mu_transit * u_bus)
                 + av_dar * np.exp(scale * mu_transit * u_dar)
-                + 1e-20
+                + 1e-50
             )
         )
         / mu_transit
@@ -118,12 +119,14 @@ def mc_utilities(mdot_per_dat: pd.DataFrame, ascs: tuple, skims: tuple) -> float
             np.log(
                 av_auto * np.exp(scale * mu_auto * u_drive)
                 + av_share * np.exp(scale * mu_auto * u_share)
-                + 1e-20
+                + 1e-50
             )
         )
         / mu_auto
     )
-    return np.log(sum([av_wk * np.exp(scale * u_walk), exp_ls_auto, exp_ls_transit]))
+    return np.log(
+        sum([av_wk * np.exp(scale * u_walk), exp_ls_auto, exp_ls_transit]) + 1e-50
+    )
 
 
 def mc_utilities_shop(mdot_per_dat: pd.DataFrame, ascs: tuple, skims: tuple) -> float:
@@ -189,7 +192,7 @@ def mc_utilities_shop(mdot_per_dat: pd.DataFrame, ascs: tuple, skims: tuple) -> 
         av_auto * np.exp(scale * u_drive),
     ]
 
-    return np.log(sum(utilities))
+    return np.log(sum(utilities) + 1e-50)
 
 
 # FN:calculate mode Probabilities
@@ -285,6 +288,7 @@ def mc_probs(
             np.log(
                 av_bus * np.exp(scale * mu_transit * u_bus)
                 + av_dar * np.exp(scale * mu_transit * u_dar)
+                + 1e-50
             )
         )
         / mu_transit
@@ -295,7 +299,7 @@ def mc_probs(
             np.log(
                 av_auto * np.exp(scale * mu_auto * u_drive)
                 + av_share * np.exp(scale * mu_auto * u_share)
-                + 1e-20
+                + 1e-50
             )
         )
         / mu_auto
@@ -320,8 +324,8 @@ def mc_probs(
 
     if p_trans > 0 and np.isfinite(p_trans):
         foo = sum([utilities[1], utilities[2]])
-        p_dar = (utilities[2] / foo) * p_trans if foo else 0.0 * p_trans
-        p_bus = (utilities[1] / foo) * p_trans if foo else 0.0 * p_trans
+        p_dar = (utilities[2] / foo) * p_trans if foo else 0.0
+        p_bus = (utilities[1] / foo) * p_trans if foo else 0.0
     else:
         foo = sum([utilities[1], utilities[2]])
         p_dar = utilities[2] / foo if foo else 0.0
@@ -329,8 +333,8 @@ def mc_probs(
 
     if p_auto > 0 and np.isfinite(p_auto):
         foo = sum([utilities[3], utilities[4]])
-        p_drive = (utilities[4] / foo) * p_auto if foo else 0.0 * p_auto
-        p_share = (utilities[3] / foo) * p_auto if foo else 0.0 * p_auto
+        p_drive = (utilities[4] / foo) * p_auto if foo else 0.0
+        p_share = (utilities[3] / foo) * p_auto if foo else 0.0
     else:
         foo = sum([utilities[3], utilities[4]])
         p_drive = utilities[4] / foo if foo else 0.0
@@ -383,7 +387,7 @@ def mc_probs_shop(
     av_wk = mdot_per_dat["av_wk"]
     av_dar = mdot_per_dat["av_dar"]
     av_bus = mdot_per_dat["av_bus"]
-    av_share = mdot_per_dat["hh_auto"] > 0
+    av_share = int(mdot_per_dat["hh_auto"] > 0)
     av_auto = mdot_per_dat["av_auto"]
 
     # mode utilities
@@ -419,9 +423,10 @@ def dc_utility(dis: float, emp: float, mcls: float) -> float:
     b_mcls = 0.80
     b_size = 0.87
 
-    return np.exp(b_size * np.log(emp + 1) + b_mcls * mcls)
+    return np.exp(b_size * np.log(emp + 1.0) + b_mcls * mcls)
 
 
+@my_timer
 def trip_prediction(
     id_converter: dict,
     mdot_dat: pd.DataFrame,
@@ -449,7 +454,7 @@ def trip_prediction(
             id_converter_rev[mdot_dat.loc[i, "geoid_o"]] in stop_zones
             and id_converter_rev[mdot_dat.loc[i, "geoid_d"]] in stop_zones
         ):
-            mdot_dat_busz = mdot_dat_busz.append(mdot_dat.loc[i, :], ignore_index=True)
+            mdot_dat_busz = mdot_dat_busz.append(mdot_dat.loc[i, :], ignore_index=False)
 
     N = len(mdot_dat_busz)
     N_ZONE = len(id_converter)
@@ -476,14 +481,14 @@ def trip_prediction(
                 per_wktt.iloc[i, j],
             )
 
-        if 7 < mdot_dat_busz.purpose.iloc[i] <= 10:
-            mcls[i, j] = mc_utilities_shop(
-                mdot_dat_busz.iloc[i, :],
-                shop_ascs,
-                skims,
-            )
-        else:
-            mcls[i, j] = mc_utilities(mdot_dat_busz.iloc[i, :], other_ascs, skims)
+            if 7 < mdot_dat_busz.purpose.iloc[i] <= 10:
+                mcls[i, j] = mc_utilities_shop(
+                    mdot_dat_busz.iloc[i, :],
+                    shop_ascs,
+                    skims,
+                )
+            else:
+                mcls[i, j] = mc_utilities(mdot_dat_busz.iloc[i, :], other_ascs, skims)
 
     # Predict all trip destination volumes: Output OD matrix for all trip volumes
     dc_prob = np.zeros((N, N_MODE))
@@ -495,15 +500,15 @@ def trip_prediction(
             exp_u_holder[j] = dc_utility(
                 per_ddist.iloc[i, j], per_emp.iloc[i, j], mcls[i, j]
             )
-            dc_prob[i, 0:-1] = exp_u_holder[0:-1] / np.sum(exp_u_holder)
-            dc_prob[i, -1] = 1 - np.sum(dc_prob[i, 0:-1])
+        dc_prob[i, 0:-1] = exp_u_holder[0:-1] / np.sum(exp_u_holder)
+        dc_prob[i, -1] = 1 - np.sum(dc_prob[i, 0:-1])
 
-            # Which zone Indx is the origin?
-            o = id_converter_rev[mdot_dat_busz["geoid_o"].iloc[i]]
-            # Which zone Indx is the predicted destination?
-            d = id_converter_rev[dests_geo.iloc[i, np.argmax(dc_prob[i, :])]]
-            trips_mat.setdefault((o, d), 0)
-            trips_mat[o, d] += mdot_dat_busz["weight"].iloc[i]
+        # Which zone Indx is the origin?
+        o = id_converter_rev[mdot_dat_busz["geoid_o"].iloc[i]]
+        # Which zone Indx is the predicted destination?
+        d = id_converter_rev[dests_geo.iloc[i, np.argmax(dc_prob[i, :])]]
+        trips_mat.setdefault((o, d), 0)
+        trips_mat[o, d] += mdot_dat_busz["weight"].iloc[i]
 
     bus_probs = np.zeros((N_ZONE, N_ZONE))
     dar_probs = np.zeros((N_ZONE, N_ZONE))
@@ -531,17 +536,16 @@ def trip_prediction(
                 list(p) + [mdot_dat_busz["weight"].iloc[trip]]
             )
 
-    bus_probs[i, j] = np.round_(
-        np.sum(mc_probs_h[:, i, j, 1] * mc_probs_h[:, i, j, 5])
-        / np.sum(mc_probs_h[:, i, j, 5]),
-        decimals=7,
-    )
-
-    dar_probs[i, j] = np.round_(
-        np.sum(mc_probs_h[:, i, j, 2] * mc_probs_h[:, i, j, 5])
-        / np.sum(mc_probs_h[:, i, j, 5]),
-        decimals=7,
-    )
+        bus_probs[i, j] = np.round_(
+            np.sum(mc_probs_h[:, i, j, 1] * mc_probs_h[:, i, j, 5])
+            / np.sum(mc_probs_h[:, i, j, 5]),
+            decimals=7,
+        )
+        dar_probs[i, j] = np.round_(
+            np.sum(mc_probs_h[:, i, j, 2] * mc_probs_h[:, i, j, 5])
+            / np.sum(mc_probs_h[:, i, j, 5]),
+            decimals=7,
+        )
 
     # Calculate Bus + Dar Volumes, by destination
     ttrips_mat = dict()
@@ -560,7 +564,7 @@ if __name__ == "__main__":
     mc_fileloc = "mc_input_data2/"
 
     stop_zones_df = pd.read_csv(mc_fileloc + "stop_zones.csv")
-    stop_zones = set(stop_zones_df.loc[:, "stop_zones"])
+    stop_zones = set(stop_zones_df["stop_zones"].apply(lambda x: x - 1))
 
     D = pd.read_csv(mc_fileloc + "distance.csv", index_col=0)
     id_converter = {i: idx for i, idx in enumerate(D.index)}
@@ -608,6 +612,9 @@ if __name__ == "__main__":
     if not os.path.exists(result_loc):
         os.makedirs(result_loc)
 
-    np.savetxt(result_loc + "transit_trips.csv", transit_trip, delimiter=",")
+    np.savetxt(
+        result_loc + "transit_trips.csv", transit_trip, fmt="%.7f", delimiter=","
+    )
+    print("finish!")
 
 # %%
