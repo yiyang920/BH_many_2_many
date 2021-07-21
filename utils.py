@@ -4,6 +4,7 @@
 # pylint: disable=E0611, E1101, E1123, E1120
 # import glob
 import os
+from typing import Any
 
 os.environ["PROJ_LIB"] = r"C:\\Users\\SQwan\\miniconda3\\Library\\share"
 
@@ -187,7 +188,70 @@ def load_mc_input(config):
     return per_time, per_dist, per_emp, mdot_dat, dests_geo, D
 
 
-def disagg_2_agg_trip(transit_trips_dict, config, disagg_2_agg_id=None, fraction=0.6):
+def load_mc_input_2(
+    config: dict,
+) -> tuple[
+    dict[int, int],
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+]:
+    """
+    Load trip-based travel demand model input data,
+    and return a zoneid-to-geoid converter.
+    """
+    mc_fileloc = config["mc_fileloc"]
+
+    stop_zones_df = pd.read_csv(mc_fileloc + "stop_zones.csv")
+    stop_zones = set(stop_zones_df["stop_zones"].apply(lambda x: x - 1))
+
+    D = pd.read_csv(mc_fileloc + "distance.csv", index_col=0)
+    id_converter = {i: idx for i, idx in enumerate(D.index)}
+
+    gm_transTT = pd.read_csv(mc_fileloc + "gm_transit_time_min.csv", index_col=0)
+    gm_transdist = pd.read_csv(mc_fileloc + "gm_transit_dist_km.csv", index_col=0)
+    gm_autoTT = pd.read_csv(mc_fileloc + "gm_auto_time_min.csv", index_col=0)
+    gm_autodist = pd.read_csv(mc_fileloc + "gm_auto_dist_km.csv", index_col=0)
+    gm_wkTT = pd.read_csv(mc_fileloc + "gm_walk_time_min.csv", index_col=0)
+    gm_wkdist = pd.read_csv(mc_fileloc + "gm_walk_dist_km.csv", index_col=0)
+    est_dat = pd.read_csv(mc_fileloc + "mc_dat_trips_miss.csv")
+    mdot_dat = est_dat.loc[est_dat["dat_id"] == 3, :]
+
+    per_emp = pd.read_csv(mc_fileloc + "dests_temp_trips.csv")
+    per_tdist = pd.read_csv(mc_fileloc + "tdists_dat_trips.csv")
+    dests_geo = pd.read_csv(mc_fileloc + "tdests_geoid_trips.csv")
+    per_ddist = pd.read_csv(mc_fileloc + "tdests_ddist_trips.csv")
+    per_bustt = pd.read_csv(mc_fileloc + "tdests_bustt_trips.csv")
+    per_drtt = pd.read_csv(mc_fileloc + "tdests_drtt_trips.csv")
+    per_wktt = pd.read_csv(mc_fileloc + "tdests_wktt_trips.csv")
+
+    return (
+        id_converter,
+        mdot_dat,
+        stop_zones,
+        per_ddist,
+        per_tdist,
+        per_drtt,
+        per_bustt,
+        per_wktt,
+        per_emp,
+        dests_geo,
+        gm_autodist,
+        gm_transdist,
+        gm_autoTT,
+        gm_transTT,
+        gm_wkTT,
+    )
+
+
+def disagg_2_agg_trip(
+    transit_trips_dict: dict[tuple[int, int], float],
+    config: dict[str, Any],
+    disagg_2_agg_id: dict[int, int] = None,
+    fraction: float = 0.6,
+) -> dict[tuple[int, int], int]:
     """
     Convert disaggregated trips into aggregated trips
     Rider info: Rounding trip number with threshold 0.5

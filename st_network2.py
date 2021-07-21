@@ -5,7 +5,7 @@
 import pandas as pd
 import numpy as np
 import networkx as nx
-import time
+import os
 import itertools
 import scipy.sparse as sp
 from scipy.spatial import distance
@@ -705,6 +705,8 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None):
                 # Route_D[d] = sorted(list(Route_D[d]))
     elif m.status == GRB.INFEASIBLE:
         m.computeIIS()
+        if not os.path.exists(config["m2m_output_loc"]):
+            os.makedirs(config["m2m_output_loc"])
         m.write(config["m2m_output_loc"] + "model.ilp")
         raise ValueError("Infeasible solution!")
     else:

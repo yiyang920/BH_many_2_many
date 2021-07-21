@@ -558,7 +558,7 @@ def trip_prediction(
 if __name__ == "__main__":
     # %%
     print("start testing...")
-    # id_converter = pickle.load(open("Data/id_converter.p", "rb"))
+    id_converter1 = pickle.load(open("Data/id_converter.p", "rb"))
 
     # Load data
     mc_fileloc = "mc_input_data2/"
