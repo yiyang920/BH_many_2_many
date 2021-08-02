@@ -38,7 +38,7 @@ def route_disagg(
     # number of disagg zones
     S = config["S_disagg"]
     # number of drivers
-    D = len(Driver)
+    D_len = len(Driver)
     # Time horizon of one tour of all drivers
     T = config["T_post_processing"]
 

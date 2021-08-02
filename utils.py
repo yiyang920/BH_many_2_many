@@ -1210,18 +1210,24 @@ def travel_demand_plot(trips_dict, config):
     """
     S = config["S_disagg"]  # number of zones
 
-    trip_sum = pd.DataFrame(columns=["zone_id", "indegree", "outdegree", "total"])
+    trip_sum = pd.DataFrame(
+        columns=["zone_id", "indegree", "outdegree", "total", "net"]
+    )
     trip_sum.zone_id = np.arange(S)
     for station in np.arange(S):
         trip_sum.loc[trip_sum.zone_id == station, "indegree"] = sum(
-            [trips for (o, d), trips in trips_dict.items() if d == station]
+            [trips for (_, d), trips in trips_dict.items() if d == station]
         )
         trip_sum.loc[trip_sum.zone_id == station, "outdegree"] = sum(
-            [trips for (o, d), trips in trips_dict.items() if o == station]
+            [trips for (o, _), trips in trips_dict.items() if o == station]
         )
         trip_sum.loc[trip_sum.zone_id == station, "total"] = (
             trip_sum.loc[trip_sum.zone_id == station, "outdegree"]
             + trip_sum.loc[trip_sum.zone_id == station, "indegree"]
+        )
+        trip_sum.loc[trip_sum.zone_id == station, "net"] = abs(
+            trip_sum.loc[trip_sum.zone_id == station, "outdegree"]
+            - trip_sum.loc[trip_sum.zone_id == station, "indegree"]
         )
     trip_sum.to_csv(config["m2m_output_loc"] + "transit_trips_dict_pk.csv", index=False)
 
@@ -1327,6 +1333,46 @@ def travel_demand_plot(trips_dict, config):
 
     fig.savefig(
         config["figure_pth"] + r"transit_trip_total.png", bbox_inches="tight", dpi=100
+    )
+    plt.close()
+
+    # net demand plot
+    fig = plt.figure(figsize=(30, 25))
+    ax = fig.gca()
+
+    vmin = gpd_shp_trip_sum.net.min()
+    vmax = gpd_shp_trip_sum.net.max()
+
+    gpd_shp_trip_sum.plot(
+        column="net",
+        ax=ax,
+        legend=False,
+        cmap="Purples",
+        edgecolor="black",
+    )
+
+    for i, (xx, yy) in enumerate(
+        zip(gpd_shp_trip_sum.centroid.x, gpd_shp_trip_sum.centroid.y), start=0
+    ):
+        plt.annotate(
+            str(gpd_shp_trip_sum.zone_id[i]),
+            (xx, yy),
+            xytext=(5, 5),
+            textcoords="offset points",
+        )
+
+    cax = fig.add_axes([1, 0.1, 0.03, 0.8])
+
+    sm = plt.cm.ScalarMappable(cmap="Purples", norm=plt.Normalize(vmin=vmin, vmax=vmax))
+    sm._A = []
+    cbr = fig.colorbar(
+        sm,
+        cax=cax,
+    )
+    cbr.ax.tick_params(labelsize=30)
+
+    fig.savefig(
+        config["figure_pth"] + r"transit_trip_net.png", bbox_inches="tight", dpi=100
     )
     plt.close()
 

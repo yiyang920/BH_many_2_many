@@ -28,6 +28,7 @@ BUILD_ON: True # optimization based on previous optimized route
 FIXED_ROUTE: True # combined with existing fixed routes
 REPEATED_TOUR: True # true if optimize bus tour, otherwise flex route
 PENALIZE_RATIO: True # penalize ATT-SPTT ratio in objective
+DEMAND_MODEL: False # true if run travel demand model
 
 # Many-to-many model parameters
 S: 39 # number of aggregated zones

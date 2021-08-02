@@ -82,12 +82,31 @@ while ITER_LIMIT and not (OBJ and OBJ_set and OBJ in OBJ_set):
 
     if OBJ:
         OBJ_set.add(OBJ)
-    try:
-        ttrips_mat = pickle.load(
-            open(config["m2m_data_loc"] + "ttrips_mat.p", "rb"),
-        )
-    except:
-        print("transit trip table not found, running travel demand model...")
+    if not config["DEMAND_MODEL"]:
+        try:
+            ttrips_mat = pickle.load(
+                open(config["m2m_data_loc"] + "ttrips_mat.p", "rb"),
+            )
+        except:
+            print("transit trip table not found, running travel demand model...")
+            ttrips_mat = trip_prediction(
+                id_converter,
+                mdot_dat,
+                stop_zones,
+                per_ddist,
+                per_tdist,
+                per_drtt,
+                per_bustt,
+                per_wktt,
+                per_emp,
+                dests_geo,
+                gm_autodist,
+                gm_transdist,
+                gm_autoTT,
+                gm_transTT,
+                gm_wkTT,
+            )
+    else:
         ttrips_mat = trip_prediction(
             id_converter,
             mdot_dat,
