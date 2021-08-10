@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import networkx as nx
 from python_tsp.exact import solve_tsp_dynamic_programming
 
 
@@ -8,8 +9,8 @@ def direct_disagg(
     OD_d: dict[int, dict[str, int]],
     Driver: "np.ndarray[np.int64]",
     tau_disagg: "np.ndarray[np.int64]",
-    tau_agg: "np.ndarray[np.int64]",
-    ctr: dict[int, list[int]],
+    # tau_agg: "np.ndarray[np.int64]",
+    ctr_disagg: dict[int, list[int]],
     agg_2_disagg_id: dict[int, list[int]],
     disagg_2_agg_id: dict[int, int],
     config: dict[str, any],
@@ -25,7 +26,7 @@ def direct_disagg(
     tau_disagg ->  zone-to-zone travel time of disaggregated network, numpy array
     tau_agg -> zone-to-zone travel time of disaggregated network
             with diagonal elements equal to one, numpy array
-    ctr ->  a dictionary with key as zones and values be the set of neighbor
+    ctr_disagg ->  a dictionary with key as zones and values be the set of neighbor
             zones for the key including the key itself (disaggregated network)
     """
     # time horizon of one tour of all drivers
@@ -35,14 +36,24 @@ def direct_disagg(
 
     # set of drivers, drivers' origins and destinations of disagg network
     # not include current fixed routes
-    D = set(OD_d.keys()) if not config["FIXED_ROUTE"] else set(config["driver_set"])
+    D = (
+        set(Route_D_agg.keys())
+        if not config["FIXED_ROUTE"]
+        else set(config["driver_set"])
+    )
 
+    # load graph of disaggregated network with arc cost as the travel time
+    G_t_disagg = pickle.load(open(r"Data\temp\G_t.p", "rb"))
+
+    # =================================================================
     # DEPRECIATED: disagg nodes need to be visited to serve passengers
+    # =================================================================
     S_r = set()
     if OD_r:
         for OD_dictionary in OD_r.values():
             S_r.add(OD_dictionary["O"])
             S_r.add(OD_dictionary["D"])
+    # =================================================================
 
     # time window for each driver. If repeated tour mode,
     # TW_d should be the time window for the first single tour
@@ -96,7 +107,7 @@ def direct_disagg(
             for d, t_list in d_dict.items():
                 for t in t_list:
                     H_d_tilda.setdefault(d, list()).append((s, d, t))
-                    H_d.setdefault[d, list()].append(s)
+                    H_d.setdefault(d, list()).append(s)
 
     df_route_agg = pd.DataFrame()
     for d, route in Route_D_agg.items():
@@ -110,15 +121,13 @@ def direct_disagg(
     # t_hub = {(h, d, t_agg): t_disagg} -> h, t_agg is the aggregated hub node and arrival/departure time by
     # driver d; t_disagg is the arrival/departure time of hub (h, d, t_agg) in disaggregated solution
     Route_D_disagg, t_d, t_hub = (dict(), dict(), dict())
-    sub_station = (
-        list()
-    )  # list[tuple[int, int, int, int]], list of (t1, t2, s1, s2) within each super-node
+
     for index, row in df_route_agg.iterrows():
         for d in D:
             Route_D_disagg.setdefault(d, list())
             t_d.setdefault(d, 0)
             # if not the end of route for driver d
-            if np.notna(row[d]):
+            if pd.notna(row[d]):
                 s_super = row[d][2]
 
                 station = agg_2_disagg_id[s_super]
@@ -131,18 +140,19 @@ def direct_disagg(
                 if not station:  # station is empty only if it is the last super-node
                     Route_D_disagg[d].append(
                         (
-                            ds[d],
-                            OD_d[d]["D"],
                             t_d[d],
                             t_d[d] + tau_disagg[ds[d], OD_d[d]["D"]],
+                            ds[d],
+                            OD_d[d]["D"],
                         )
                     )
                     t_d[d] += tau_disagg[ds[d], OD_d[d]["D"]]
                     ds[d] = OD_d[d]["D"]
                 # when station has at least one sub-node
                 else:
-                    # check if the current super-node is the hub or not
+                    # if it is not the first super-node
                     if index > 0:
+                        # check if the current super-node is the hub or not
                         # if the current super-node is not a hub node,
                         # and if the current node is not the first super-node, os[d] will be the
                         # closest sub-node to the ds[d] from previous partition
@@ -150,26 +160,96 @@ def direct_disagg(
                             os[d] = station[
                                 np.argmin(tau_disagg[ds[d], s] for s in station)
                             ]
-                            t_d[d] += tau_disagg[ds[d], os[d]]
+
+                            if os[d] not in ctr_disagg[ds[d]]:
+                                # if os and ds are not neighbors, connect them with shortest path
+                                path_foo = nx.shortest_path(
+                                    G_t_disagg,
+                                    source=ds[d],
+                                    target=os[d],
+                                    weight="weight",
+                                )
+                                sub_station = list()
+                                # constructing disaggregated subroute of current epoch
+                                for s1, s2 in zip(path_foo[:-1], path_foo[1:]):
+                                    sub_station.append(
+                                        (
+                                            t_d[d],
+                                            t_d[d] + tau_disagg[s1, s2],
+                                            s1,
+                                            s2,
+                                        )
+                                    )
+                                    t_d[d] += tau_disagg[s1, s2]
+                                Route_D_disagg[d] += sub_station
+                            else:
+                                # if os and ds are neighbors, connect them directly
+                                Route_D_disagg[d] += [
+                                    (
+                                        t_d[d],
+                                        t_d[d] + tau_disagg[ds[d], os[d]],
+                                        ds[d],
+                                        os[d],
+                                    )
+                                ]
+                                t_d[d] += tau_disagg[ds[d], os[d]]
 
                         # if the current super-node is a hub node
                         else:
                             # let the hub be the first sub-node in current partition
                             os[d] = station[0]
-                            t_d[d] += tau_disagg[ds[d], os[d]]
-                            # record the actual arrival/departure time of current hub (h, d, t)
+
+                            if os[d] not in ctr_disagg[ds[d]]:
+                                # if os and ds are not neighbors, connect them with shortest path
+                                path_foo = nx.shortest_path(
+                                    G_t_disagg,
+                                    source=ds[d],
+                                    target=os[d],
+                                    weight="weight",
+                                )
+                                sub_station = list()
+                                # constructing disaggregated subroute at current epoch
+                                for s1, s2 in zip(path_foo[:-1], path_foo[1:]):
+                                    sub_station.append(
+                                        (
+                                            t_d[d],
+                                            t_d[d] + tau_disagg[s1, s2],
+                                            s1,
+                                            s2,
+                                        )
+                                    )
+                                    t_d[d] += tau_disagg[s1, s2]
+                                Route_D_disagg[d] += sub_station
+                            else:
+                                # if os and ds are neighbors, connect them directly
+                                Route_D_disagg[d] += [
+                                    (
+                                        t_d[d],
+                                        t_d[d] + tau_disagg[ds[d], os[d]],
+                                        ds[d],
+                                        os[d],
+                                    )
+                                ]
+                                t_d[d] += tau_disagg[ds[d], os[d]]
+
+                            # record the actual arrival/departure time of current disagg hub
+                            # with dictionary (h_agg, d, t), h_agg is the super-hub, each super-hub corresponds
+                            # to one disagg hub
                             t_hub[(s_super, d, row[d][0])] = t_d[d]
 
                             for (h_temp, d_temp, t_temp) in t_hub.keys():
-                                # case 1: 当前driver提前其他driver到达hub
+                                # case 1: 当前driver提前于其他driver到达hub
                                 if (
                                     d_temp != d
                                     and h_temp == s_super
                                     and t_temp <= row[d][0]
                                     and t_hub[h_temp, d_temp, t_temp] > t_d[d]
                                 ):
-                                    # amount of time the driver d need to wait
+                                    # amount of time the current driver d need to wait
                                     delta = t_hub[h_temp, d_temp, t_temp] - t_d[d]
+                                    Route_D_disagg[d].append(
+                                        (t_d[d], t_d[d] + delta, os[d], os[d])
+                                    )
                                     # add waiting time to t_d[d]
                                     t_d[d] += delta
                                 # case 2: 当前driver迟于某driver到达hub
@@ -177,47 +257,70 @@ def direct_disagg(
                                     d_temp != d
                                     and h_temp == s_super
                                     and t_temp >= row[d][0]
-                                    and t_hub[t_temp, d_temp, t_temp] < t_d[d]
+                                    and t_hub[h_temp, d_temp, t_temp] < t_d[d]
                                 ):
-                                    # amount of time the driver d need to wait
+                                    # amount of time the driver d_temp need to wait
                                     delta = t_hub[h_temp, d_temp, t_temp] - t_d[d]
                                     # add waiting time for d_temp
-                                    Route_D_disagg[d_temp] = [
-                                        (t1, t2, s1, s2)
-                                        if t1 < t_hub[h_temp, d_temp, t_temp]
-                                        else (t1 + delta, t2 + delta, s1, s2)
-                                        for (t1, t2, s1, s2) in Route_D_disagg[d_temp]
-                                    ]
+                                    Route_D_disagg[d_temp] = (
+                                        [
+                                            (t1, t2, s1, s2)
+                                            for (t1, t2, s1, s2) in Route_D_disagg[
+                                                d_temp
+                                            ]
+                                            if t1 < t_hub[h_temp, d_temp, t_temp]
+                                        ]
+                                        + [(t_temp, t_temp + delta, os[d], os[d])]
+                                        + [
+                                            (t1 + delta, t2 + delta, s1, s2)
+                                            for (t1, t2, s1, s2) in Route_D_disagg[
+                                                d_temp
+                                            ]
+                                            if t1 >= t_hub[h_temp, d_temp, t_temp]
+                                        ]
+                                    )
 
                     p_size = len(station)
-                    distance_matrix = np.zeros((p_size, p_size))
-                    for i in range(p_size):
-                        for j in range(p_size):
-                            if i != j:
-                                distance_matrix[i, j] = tau_disagg[
-                                    station[i], station[j]
-                                ]
-                    sub_route, _ = solve_tsp_dynamic_programming(distance_matrix)
-                    # index of the first substation
-                    O_idx = sub_route.index(os[d])
-                    # rotate to the first substation
-                    sub_route = sub_route[O_idx:] + sub_route[:O_idx]
+                    if p_size > 1:
+                        distance_matrix = np.zeros((p_size, p_size))
+                        for i in range(p_size):
+                            for j in range(p_size):
+                                if i != j:
+                                    distance_matrix[i, j] = tau_disagg[
+                                        station[i], station[j]
+                                    ]
+                        sub_route, _ = solve_tsp_dynamic_programming(distance_matrix)
+                        # index of the first substation
+                        O_idx = station.index(os[d])
+                        O_idx2 = sub_route.index(O_idx)
+                        # rotate to the first substation
+                        sub_route = sub_route[O_idx:] + sub_route[:O_idx]
 
-                    if row[d][1] < TW_d[d]:
-                        ds[d] = sub_route[-1]
-                    else:
-                        sub_route.append(OD_d[d]["D"])
-                        ds[d] = OD_d[d]["D"]
+                        if row[d][1] < TW_d[d]:
+                            ds[d] = station[sub_route[-1]]
+                        else:
+                            sub_route.append(OD_d[d]["D"])
+                            ds[d] = OD_d[d]["D"]
 
-                    # constructing disaggregated subroute of current epoch
-                    for s1, s2 in zip(sub_route[:-1], sub_route[1:]):
-                        sub_station.append(
-                            (s1, s2, t_d[d], t_d[d] + tau_disagg[s1, s2])
-                        )
-                        t_d[d] += tau_disagg[s1, s2]
+                        # list[tuple[int, int, int, int]], list of (t1, t2, s1, s2) within each super-node
+                        sub_station = list()
+                        # constructing disaggregated subroute of current epoch
+                        for s1, s2 in zip(sub_route[:-1], sub_route[1:]):
+                            sub_station.append(
+                                (
+                                    station[s1],
+                                    station[s2],
+                                    t_d[d],
+                                    t_d[d] + tau_disagg[station[s1], station[s2]],
+                                )
+                            )
+                            t_d[d] += tau_disagg[station[s1], station[s2]]
 
-                    Route_D_disagg[d] += sub_station
-
+                        Route_D_disagg[d] += sub_station
+                    elif p_size == 1:
+                        ds[d] = station[0]
+    # TODO: 最后一个super node的处理，加上之前removed的DS_d
+    # TODO: 最后一个super node的处理，disagg route的生成
     return Route_D_disagg
 
 
@@ -269,6 +372,16 @@ if __name__ == "__main__":
         config["m2m_data_loc"] + "Driver_OD_disagg.csv", index_col=["ID"]
     ).to_dict("index")
 
+    # Driver = np.array(
+    #     [
+    #         [0, 0, 0, 40, 22, 22, 40],
+    #         [1, 0, 0, 40, 22, 22, 40],
+    #         [2, 0, 0, 62, 17, 17, 62],
+    #         [3, 0, 0, 55, 22, 22, 55],
+    #     ]
+    # )
+    Driver = pickle.load(open("Data\\debug\\Driver.p", "rb"))
+
     # Load fixed routed infomation
     _, FR, _ = load_FR_m2m_gc(
         agg_2_disagg_id, disagg_2_agg_id, config
@@ -279,10 +392,16 @@ if __name__ == "__main__":
     #     if d in test_driver_set
     # }
     Route_D = {d: route for d, route in Route_D.items() if d in test_driver_set}
-    tau, tau2 = load_tau_disagg(config)
-    ctr = load_neighbor_disagg(config)
+    tau_disagg, tau2_disagg = load_tau_disagg(config)
+    ctr_disagg = load_neighbor_disagg(config)
 
     Route_D = direct_disagg(
         Route_D,
         OD_d,
+        Driver,
+        tau_disagg,
+        ctr_disagg,
+        agg_2_disagg_id,
+        disagg_2_agg_id,
+        config,
     )
