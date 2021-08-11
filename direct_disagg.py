@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import networkx as nx
+import copy
 from python_tsp.exact import solve_tsp_dynamic_programming
 
 
@@ -60,9 +61,14 @@ def direct_disagg(
     TW_d = {d: Driver[i, 3] - Driver[i, 2] for i, d in enumerate(Driver[:, 0])}
     # each driver only register its first tour info
     Route_D_agg = {
-        d: [station for station in route if station[1] <= TW_d[d]]
+        d: [station for station in route if station[0] <= TW_d[d]]
         for d, route in Route_D_agg.items()
     }
+    # in case there is only one tour, add a waiting link to the end of route
+    for d, route in Route_D_agg.items():
+        if route[-1][0] < TW_d[d]:
+            ds_foo = Route_D_agg[d][-1][3]
+            Route_D_agg[d].append((TW_d[d], TW_d[d] + 1, ds_foo, ds_foo))
     # node set for each driver, disagg
     S_d = {
         d: set(
@@ -107,7 +113,7 @@ def direct_disagg(
             for d, t_list in d_dict.items():
                 for t in t_list:
                     H_d_tilda.setdefault(d, list()).append((s, d, t))
-                    H_d.setdefault(d, list()).append(s)
+                    H_d.setdefault(d, set()).add(s)
 
     df_route_agg = pd.DataFrame()
     for d, route in Route_D_agg.items():
@@ -130,14 +136,16 @@ def direct_disagg(
             if pd.notna(row[d]):
                 s_super = row[d][2]
 
-                station = agg_2_disagg_id[s_super]
+                station_list = copy.deepcopy(agg_2_disagg_id[s_super])
                 # make sure the DS_d will always be the destination node
-                if row[d][1] == TW_d[d]:
-                    station.remove(OD_d[d]["D"])
+                if row[d][0] == TW_d[d]:
+                    station_list.remove(OD_d[d]["D"])
 
                 # in case the last super-node, i.e. DS_d, has only one sub-node,
                 # where after removing DS_d, station will be an empty list
-                if not station:  # station is empty only if it is the last super-node
+                if (
+                    not station_list
+                ):  # station is empty only if it is the last super-node
                     Route_D_disagg[d].append(
                         (
                             t_d[d],
@@ -157,8 +165,8 @@ def direct_disagg(
                         # and if the current node is not the first super-node, os[d] will be the
                         # closest sub-node to the ds[d] from previous partition
                         if s_super not in H_d[d]:
-                            os[d] = station[
-                                np.argmin(tau_disagg[ds[d], s] for s in station)
+                            os[d] = station_list[
+                                np.argmin(tau_disagg[ds[d], s] for s in station_list)
                             ]
 
                             if os[d] not in ctr_disagg[ds[d]]:
@@ -197,7 +205,7 @@ def direct_disagg(
                         # if the current super-node is a hub node
                         else:
                             # let the hub be the first sub-node in current partition
-                            os[d] = station[0]
+                            os[d] = station_list[0]
 
                             if os[d] not in ctr_disagg[ds[d]]:
                                 # if os and ds are not neighbors, connect them with shortest path
@@ -280,27 +288,39 @@ def direct_disagg(
                                         ]
                                     )
 
-                    p_size = len(station)
+                    p_size = len(station_list)
+                    # index of the first substation
+                    O_idx = station_list.index(os[d])
+                    # rotate the station list to make os as the first stop
+                    station_foo = station_list[O_idx:] + station_list[:O_idx]
+
                     if p_size > 1:
                         distance_matrix = np.zeros((p_size, p_size))
                         for i in range(p_size):
                             for j in range(p_size):
                                 if i != j:
                                     distance_matrix[i, j] = tau_disagg[
-                                        station[i], station[j]
+                                        station_foo[i], station_foo[j]
                                     ]
-                        sub_route, _ = solve_tsp_dynamic_programming(distance_matrix)
-                        # index of the first substation
-                        O_idx = station.index(os[d])
-                        O_idx2 = sub_route.index(O_idx)
-                        # rotate to the first substation
-                        sub_route = sub_route[O_idx:] + sub_route[:O_idx]
+                        # insert zero column to make it an open tsp problem
+                        distance_matrix[:, 0] = 0
 
-                        if row[d][1] < TW_d[d]:
-                            ds[d] = station[sub_route[-1]]
-                        else:
+                        sub_route, _ = solve_tsp_dynamic_programming(distance_matrix)
+
+                        path_foo = list()
+                        if row[d][0] < TW_d[d]:
+                            ds[d] = station_foo[sub_route[-1]]
+                        else:  # add previously removed destination stop
                             sub_route.append(OD_d[d]["D"])
                             ds[d] = OD_d[d]["D"]
+                            if ds[d] not in ctr_disagg[station_foo[sub_route[-1]]]:
+                                # if os and ds are not neighbors, connect them with shortest path
+                                path_foo = nx.shortest_path(
+                                    G_t_disagg,
+                                    source=ctr_disagg[station_foo[sub_route[-1]]],
+                                    target=ds[d],
+                                    weight="weight",
+                                )
 
                         # list[tuple[int, int, int, int]], list of (t1, t2, s1, s2) within each super-node
                         sub_station = list()
@@ -308,19 +328,30 @@ def direct_disagg(
                         for s1, s2 in zip(sub_route[:-1], sub_route[1:]):
                             sub_station.append(
                                 (
-                                    station[s1],
-                                    station[s2],
+                                    station_foo[s1],
+                                    station_foo[s2],
                                     t_d[d],
-                                    t_d[d] + tau_disagg[station[s1], station[s2]],
+                                    t_d[d]
+                                    + tau_disagg[station_foo[s1], station_foo[s2]],
                                 )
                             )
-                            t_d[d] += tau_disagg[station[s1], station[s2]]
+                            t_d[d] += tau_disagg[station_foo[s1], station_foo[s2]]
+                        if not path_foo:
+                            # when DS is not a neighbor of the ds, connect them with shortest path
+                            for s1, s2 in zip(path_foo[:-1], path_foo[1:]):
+                                sub_station.append(
+                                    (
+                                        t_d[d],
+                                        t_d[d] + tau_disagg[s1, s2],
+                                        s1,
+                                        s2,
+                                    )
+                                )
+                                t_d[d] += tau_disagg[s1, s2]
 
                         Route_D_disagg[d] += sub_station
                     elif p_size == 1:
-                        ds[d] = station[0]
-    # TODO: 最后一个super node的处理，加上之前removed的DS_d
-    # TODO: 最后一个super node的处理，disagg route的生成
+                        ds[d] = station_list[0]
     return Route_D_disagg
 
 
@@ -377,9 +408,10 @@ if __name__ == "__main__":
     #         [0, 0, 0, 40, 22, 22, 40],
     #         [1, 0, 0, 40, 22, 22, 40],
     #         [2, 0, 0, 62, 17, 17, 62],
-    #         [3, 0, 0, 55, 22, 22, 55],
+    #         [3, 0, 0, 50, 22, 22, 50],
     #     ]
     # )
+    # pickle.dump(Driver, open("Data\\debug\\Driver.p", "wb"))
     Driver = pickle.load(open("Data\\debug\\Driver.p", "rb"))
 
     # Load fixed routed infomation
@@ -405,3 +437,5 @@ if __name__ == "__main__":
         disagg_2_agg_id,
         config,
     )
+
+    print(Route_D)
