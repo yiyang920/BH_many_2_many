@@ -1,3 +1,9 @@
+"""
+Travel-Demand model to Many-To-Many model iterations
+
+Version 2:
+    New trip-based travel demand model.
+"""
 # Disable all the "No name %r in module %r violations" in this function
 # Disable all the "%s %r has no %r member violations" in this function
 # pylint: disable=E0611, E1101
@@ -37,9 +43,9 @@ with open("config_mc_m2m_2.yaml", "r+") as fopen:
 
 # %% Load data
 DELTA_t = config["DELTA_t"]
-# Load neighbor nodes information
+# Load neighbor nodes information (agg)
 ctr = load_neighbor(config)
-# Load shortest travel time matrices
+# Load shortest travel time matrices (agg)
 tau, tau2 = load_tau(config)
 
 # Load mode choice input data
@@ -148,6 +154,9 @@ while ITER_LIMIT and not (OBJ and OBJ_set and OBJ in OBJ_set):
         pickle.dump(mr, open(r"Data\temp\mr.p", "wb"))
         pickle.dump(OBJ, open(r"Data\temp\OBJ.p", "wb"))
         pickle.dump(R_match, open(r"Data\temp\R_match.p", "wb"))
+
+        pickle.dump(Driver, open(r"Data\temp\Driver.p", "wb"))
+        pickle.dump(tau, open(r"Data\temp\tau_agg.p", "wb"))
 
     else:
         # load existing results for debugging
