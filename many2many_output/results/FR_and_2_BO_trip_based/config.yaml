@@ -1,7 +1,7 @@
 BUILD_ON: true
 DEBUG_MODE: false
 DELTA_t: 1
-DEMAND_MODEL: true
+DEMAND_MODEL: false
 FIXED_ROUTE: true
 G_d: Data\temp\G_d.p
 G_d_agg: Data\temp\G_d_agg.p

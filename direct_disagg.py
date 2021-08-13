@@ -192,15 +192,29 @@ def direct_disagg(
                                 Route_D_disagg[d] += sub_station
                             else:
                                 # if os and ds are neighbors, connect them directly
-                                Route_D_disagg[d] += [
-                                    (
-                                        t_d[d],
-                                        t_d[d] + tau_disagg[ds[d], os[d]],
-                                        ds[d],
-                                        os[d],
-                                    )
-                                ]
-                                t_d[d] += tau_disagg[ds[d], os[d]]
+                                Route_D_disagg[d] += (
+                                    [
+                                        (
+                                            t_d[d],
+                                            t_d[d] + tau_disagg[ds[d], os[d]],
+                                            ds[d],
+                                            os[d],
+                                        )
+                                    ]
+                                    if ds[d] != os[d]
+                                    else [
+                                        (
+                                            t_d[d],
+                                            t_d[d] + 1.0,
+                                            ds[d],
+                                            os[d],
+                                        )
+                                    ]
+                                )
+
+                                t_d[d] += (
+                                    tau_disagg[ds[d], os[d]] if ds[d] != os[d] else 1.0
+                                )
 
                         # if the current super-node is a hub node
                         else:
@@ -230,15 +244,29 @@ def direct_disagg(
                                 Route_D_disagg[d] += sub_station
                             else:
                                 # if os and ds are neighbors, connect them directly
-                                Route_D_disagg[d] += [
-                                    (
-                                        t_d[d],
-                                        t_d[d] + tau_disagg[ds[d], os[d]],
-                                        ds[d],
-                                        os[d],
-                                    )
-                                ]
-                                t_d[d] += tau_disagg[ds[d], os[d]]
+                                Route_D_disagg[d] += (
+                                    [
+                                        (
+                                            t_d[d],
+                                            t_d[d] + tau_disagg[ds[d], os[d]],
+                                            ds[d],
+                                            os[d],
+                                        )
+                                    ]
+                                    if ds[d] != os[d]
+                                    else [
+                                        (
+                                            t_d[d],
+                                            t_d[d] + 1.0,
+                                            ds[d],
+                                            os[d],
+                                        )
+                                    ]
+                                )
+
+                                t_d[d] += (
+                                    tau_disagg[ds[d], os[d]] if ds[d] != os[d] else 1.0
+                                )
 
                             # record the actual arrival/departure time of current disagg hub
                             # with dictionary (h_agg, d, t), h_agg is the super-hub, each super-hub corresponds
@@ -311,7 +339,8 @@ def direct_disagg(
                         if row[d][0] < TW_d[d]:
                             ds[d] = station_foo[sub_route[-1]]
                         else:  # add previously removed destination stop
-                            sub_route.append(OD_d[d]["D"])
+                            station_foo.append(OD_d[d]["D"])
+                            sub_route.append(p_size)
                             ds[d] = OD_d[d]["D"]
                             if ds[d] not in ctr_disagg[station_foo[sub_route[-1]]]:
                                 # if os and ds are not neighbors, connect them with shortest path
@@ -328,11 +357,11 @@ def direct_disagg(
                         for s1, s2 in zip(sub_route[:-1], sub_route[1:]):
                             sub_station.append(
                                 (
-                                    station_foo[s1],
-                                    station_foo[s2],
                                     t_d[d],
                                     t_d[d]
                                     + tau_disagg[station_foo[s1], station_foo[s2]],
+                                    station_foo[s1],
+                                    station_foo[s2],
                                 )
                             )
                             t_d[d] += tau_disagg[station_foo[s1], station_foo[s2]]
@@ -367,6 +396,7 @@ if __name__ == "__main__":
         1,
         2,
         3,
+        4,
     }
 
     with open("config_m2m_gc.yaml", "r+") as fopen:
@@ -374,7 +404,7 @@ if __name__ == "__main__":
 
     config["T_post_processing"] = 70
     config["m2m_output_loc"] = r"many2many_output\\results\\route_disagg_test\\"
-    config["m2m_data_loc"] = r"many2many_data\\FR_and_1_ATT_SPTT_GC\\"
+    config["m2m_data_loc"] = r"many2many_data\\FR_and_2_BO_trip_based\\"
     config["figure_pth"] = r"many2many_output\\figure\\route_disagg_test\\"
 
     if not os.path.exists(config["figure_pth"]):
@@ -393,7 +423,7 @@ if __name__ == "__main__":
             csv_out.writerow(["t1", "t2", "s1", "s2", "n1", "n2"])
             for row in Route_D[d]:
                 csv_out.writerow(row)
-    agg_2_disagg_id = pickle.load(open("Data\\debug\\agg_2_disagg_id.p", "rb"))
+    agg_2_disagg_id = pickle.load(open("Data\\agg_2_disagg_id.p", "rb"))
     disagg_2_agg_id = {
         n: partition for partition, nodes in agg_2_disagg_id.items() for n in nodes
     }
