@@ -9,41 +9,37 @@ import gurobipy as gp
 from gurobipy import GRB
 
 
-def graph_coarsening(N_n, W_n, L_l, C_l, K_k, config):
+def graph_coarsening(V, D_l, E, K, config):
     """
     Input:
-    N_n -- node set
-    W_n -- node weight
-    L_l -- link set, i.e. {(n1, n2)}
-    C_l -- link cost, dict type with key as link, i.e. {(n1, n2): c}
-    K_k -- set partitions
+    V -- node set
+    D_l -- demand matrix in dictionary
+    E -- edge set, i.e. {(n1, n2)}
+    K -- number of partitions
     config -- config of gurobipy, dict type
 
     Output:
-    X -- {(n, k)} equal to 1 if node n belongs to partition k
-    Y -- {(n1, n2, k)} equal to 1 if link (n1, n2) belongs to partition k
-    P_N -- {k: [n]} dict with key as partition ID and value as list of nodes in the partition
-    P_L -- {k:[(n1, n2)]} dict with key as partition ID and value as list of links in the partition
+    X -- {(v, k)} equal to 1 if node v belongs to partition k
+    Z -- {(v, u, k)} equal to 1 if pair (v, u) belongs to partition k
+    W -- {(v, u, k)} equal to 1 if edge (v, u) belongs to partition k
+    P_V -- {k: [v]} dict with key as partition ID and value as list of nodes in the partition
+    P_L -- {k: [(n1, n2)]} dict with key as partition ID and value as list of links in the partition
     m.ObjVal -- objective value
     """
 
-    NK_nk = set((n, k) for (n, k) in itertools.product(list(N_n), list(K_k)))
-    LK_lk = set(
-        (n1, n2, k) for ((n1, n2), k) in itertools.product(list(L_l), list(K_k))
-    )
+    VK = set((v, k) for (v, k) in itertools.product(list(V), range(K)))
+    EK = set((u, v, k) for ((u, v), k) in itertools.product(list(E), range(K)))
+    LK = set((u, v, k) for (u, v, k) in itertools.product(list(V), list(V), range(K)))
 
-    N = len(N_n)
-    K = len(K_k)
-    # soft thresholding of node weights
-    soft_thred = 500
-    W_n = {n: min(w, soft_thred) for n, w in W_n.items()}
-    W_sum = sum(W_n.values())
+    AV = {v: sum(t for (_, u), t in D_l.items() if u == v) for v in V}
+    GV = {v: sum(t for (u, _), t in D_l.items() if u == v) for v in V}
 
     m = gp.Model("graph_coarsening")
     ### Variables ###
-    x = m.addVars(NK_nk, vtype=GRB.BINARY, name="x")
-    y = m.addVars(LK_lk, vtype=GRB.BINARY, name="y")
-    z = m.addVars(K_k, vtype=GRB.BINARY, name="z")
+    x = m.addVars(VK, vtype=GRB.BINARY)
+    # y = m.addVars(EK, vtype=GRB.BINARY)
+    z = m.addVars(LK, vtype=GRB.BINARY)
+    w = m.addVars(EK, vtype=GRB.BINARY)
     ### Model Objective ###
     # m.setObjective(
     #     gp.quicksum(
@@ -56,48 +52,52 @@ def graph_coarsening(N_n, W_n, L_l, C_l, K_k, config):
     #     GRB.MAXIMIZE,
     # )
     m.setObjective(
-        gp.quicksum(
-            gp.quicksum(
-                C_l[n1, n2] * y[n1, n2, kk] for (n1, n2, kk) in LK_lk if kk == k
-            )
-            + config["THETA"] * z[k]
-            for k in K_k
-        ),
-        GRB.MAXIMIZE,
+        gp.quicksum((AV[v] + GV[v]) * x[v, k] for (v, k) in VK)
+        + gp.quicksum(D_l[u, v] * z[u, v, k] for (u, v, k) in LK),
+        GRB.MINIMIZE,
     )
 
     ### Model Constraints ###
     m.addConstrs(
-        (gp.quicksum(x[n, k] for k in K_k) == 1 for n in N_n),
+        (gp.quicksum(x[v, k] for k in range(K)) == 1 for v in V),
         "node_to_partition",
     )
 
     m.addConstrs(
-        (x[n1, k] + x[n2, k] >= 2 * y[n1, n2, k] for (n1, n2, k) in LK_lk),
+        (x[u, k] + x[v, k] >= 2 * z[u, v, k] for (u, v, k) in LK),
         "node_link_1",
     )
 
     m.addConstrs(
-        (x[n1, k] + x[n2, k] <= 1 + y[n1, n2, k] for (n1, n2, k) in LK_lk),
+        (x[u, k] + x[v, k] <= 1 + z[u, v, k] for (u, v, k) in LK),
         "node_link_2",
     )
 
     m.addConstrs(
-        (gp.quicksum(x[n, k] for n in N_n) - z[k] >= 0 for k in K_k),
-        "num_part",
+        (x[u, k] + x[v, k] >= 2 * w[u, v, k] for (u, v, k) in EK),
+        "node_link_3",
     )
 
-    if config["E-UNIFORM"]:
-        m.addConstrs(
-            (
-                gp.quicksum(W_n[n] * x[n, k] for n in N_n)
-                # <= W_sum / K + z[k]
-                # <= (1 + config["EPSILON"]) * W_sum / K
-                <= (1 + config["EPSILON"]) * soft_thred
-                for k in K_k
-            ),
-            "e-uniform",
-        )
+    m.addConstrs(
+        (
+            gp.quicksum(w[u, v, k] for (u, v) in E)
+            == gp.quicksum(x[v, k] for v in V) - 1
+            for k in range(K)
+        ),
+        "spanning_tree_1",
+    )
+
+    m.addConstrs(
+        (
+            gp.quicksum(w[u, vv, k] for (u, vv) in E if vv == v)
+            + gp.quicksum(w[vv, u, k] for (vv, u) in E if vv == v)
+            - x[v, k]
+            >= 0
+            for k in range(K)
+            for v in V
+        ),
+        "spanning_tree_2",
+    )
 
     ### Gurobipy Parameters ###
     m.params.TimeLimit = config["TIME_LIMIT_GC"]
@@ -107,28 +107,28 @@ def graph_coarsening(N_n, W_n, L_l, C_l, K_k, config):
 
     # extract solutions
     if m.status == GRB.TIME_LIMIT:
-        X = {(n, k) for (n, k) in NK_nk if x[n, k].x > 0.001}
-        Y = {(n1, n2, k) for (n1, n2, k) in LK_lk if y[n1, n2, k].x > 0.001}
+        X = {(v, k) for (v, k) in VK if x[v, k].x > 0.001}
+        Z = {(u, v, k) for (u, v, k) in LK if z[u, v, k].x > 0.001}
 
         P_N, P_L = dict(), dict()
 
-        for (n, k) in X:
-            _ = P_N.setdefault(k, []).append(n)
+        for (u, k) in X:
+            _ = P_N.setdefault(k, []).append(u)
 
-        for (n1, n2, k) in Y:
-            _ = P_L.setdefault(k, []).append((n1, n2))
+        for (u, v, k) in Z:
+            _ = P_L.setdefault(k, []).append((u, v))
 
     elif m.status == GRB.OPTIMAL:
-        X = {(n, k) for (n, k) in NK_nk if x[n, k].x > 0.001}
-        Y = {(n1, n2, k) for (n1, n2, k) in LK_lk if y[n1, n2, k].x > 0.001}
+        X = {(v, k) for (v, k) in VK if x[v, k].x > 0.001}
+        Z = {(u, v, k) for (u, v, k) in LK if z[u, v, k].x > 0.001}
 
         P_N, P_L = dict(), dict()
 
-        for (n, k) in X:
-            _ = P_N.setdefault(k, []).append(n)
+        for (u, k) in X:
+            _ = P_N.setdefault(k, []).append(u)
 
-        for (n1, n2, k) in Y:
-            _ = P_L.setdefault(k, []).append((n1, n2))
+        for (u, v, k) in Z:
+            _ = P_L.setdefault(k, []).append((u, v))
 
     elif m.status == GRB.INFEASIBLE:
         m.computeIIS()
@@ -138,7 +138,7 @@ def graph_coarsening(N_n, W_n, L_l, C_l, K_k, config):
     else:
         print("Status code: {}".format(m.status))
 
-    return (X, Y, P_N, P_L, m.ObjVal)
+    return (X, Z, P_N, P_L, m.ObjVal)
 
 
 if __name__ == "__main__":
@@ -177,9 +177,7 @@ if __name__ == "__main__":
     # Route_D_disagg = {k: v for k, v in Route_D_disagg.items() if k == 0}
 
     N, K = config["S_disagg"], config["K"]
-
-    N_n = set(np.arange(N))
-    K_k = set(np.arange(K))
+    V = set(np.arange(N))
 
     # load ID converter
     id_converter = pickle.load(open(config["id_converter"], "rb"))
@@ -203,25 +201,23 @@ if __name__ == "__main__":
         id_converter, per_dist, per_emp, mdot_dat, dests_geo, D, per_time=per_time
     )
 
-    _, _ = get_link_set_disagg(config)
-    (N_n, L_l, C_l, K_k, w_out, w_in, w_sum, w_f) = get_link_cost(
-        {k: 0.6 * v for k, v in trips_dict_pk.items()},
-        tau_disagg,
-        {},
-        # Route_D_disagg,
-        config,
-    )
+    _, E = get_link_set_disagg(config)
+    # (N_n, L_l, C_l, K_k, w_out, w_in, w_sum, w_f) = get_link_cost(
+    #     {k: 0.6 * v for k, v in trips_dict_pk.items()},
+    #     tau_disagg,
+    #     {},
+    #     # Route_D_disagg,
+    #     config,
+    # )
 
-    (X, Y, P_N, P_L, OBJ) = graph_coarsening(N_n, w_sum, L_l, C_l, K_k, config)
+    (X, Z, P_N, P_L, OBJ) = graph_coarsening(V, transit_trips_dict_pk, E, K, config)
     print("number of partition: {}".format(len(P_N)))
     # check if every partition forms a valid subgraph of the orginal graph
     for p, part in P_N.items():
         if len(part) > 1 and not all(
             any(i in ctr[j] for j in part if i != j) for i in part
         ):
-            raise ValueError(
-                "Partition does not form a subgraph! {}: {}".format(p, part)
-            )
+            print("Warning: Partition does not form a subgraph! {}: {}".format(p, part))
         # Update agg_2_disagg_id and disagg_2_agg_id
         agg_2_disagg_id = dict()
         # Mapping from origin aggregated zone id to new aggregated zone id

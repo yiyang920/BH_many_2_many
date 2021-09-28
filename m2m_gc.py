@@ -2,6 +2,7 @@
 # Disable all the "%s %r has no %r member violations" in this function
 # pylint: disable=E0611, E1101
 # %% import packages
+from mc_m2m import Route_D_disagg
 import pandas as pd
 import numpy as np
 import pickle
@@ -14,7 +15,9 @@ from st_network3 import Many2Many
 from trip_prediction import trip_prediction
 from init_partition import init_partition
 from graph_coarsening import graph_coarsening
-from route_disagg import route_disagg
+
+# from route_disagg import route_disagg
+from direct_disagg import direct_disagg
 from utils import (
     disagg_trip_get_rider,
     get_driver_m2m_gc,
@@ -195,6 +198,9 @@ while ITER_LIMIT_MC_M2M and not (OBJ and OBJ in set(OBJ_set_mc_m2m)):
             pickle.dump(R_match, open(r"Data\temp\R_match.p", "wb"))
             pickle.dump(agg_2_disagg_id, open(r"Data\temp\agg_2_disagg_id.p", "wb"))
             pickle.dump(disagg_2_agg_id, open(r"Data\temp\disagg_2_agg_id.p", "wb"))
+
+            pickle.dump(Driver, open(r"Data\temp\Driver.p", "wb"))
+            pickle.dump(tau, open(r"Data\temp\tau_agg.p", "wb"))
         else:
             # load existing results for debugging
             X = pickle.load(open(r"Data\temp\X.p", "rb"))
@@ -211,8 +217,19 @@ while ITER_LIMIT_MC_M2M and not (OBJ and OBJ in set(OBJ_set_mc_m2m)):
         R_list[config["ITR_MC_M2M"]].append(len(R_match))
 
         # Post-processing: disaggregate Route_D
-        Route_D_disagg = post_processing(
-            Route_D, config, agg_2_disagg_id=agg_2_disagg_id
+        # Route_D_disagg = post_processing(
+        #     Route_D, config, agg_2_disagg_id=agg_2_disagg_id
+        # )
+        # TODO: 修改Route_D_disagg格式
+        Route_D_disagg = direct_disagg(
+            Route_D,
+            OD_d,
+            Driver,
+            tau_disagg,
+            ctr_disagg,
+            agg_2_disagg_id,
+            disagg_2_agg_id,
+            config,
         )
         if config["FIXED_ROUTE"]:
             # Update route with the fixed route schedule

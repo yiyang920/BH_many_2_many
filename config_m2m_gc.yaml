@@ -42,7 +42,7 @@ S_disagg: 69 # number of aggregated zones
 K: 35 # upper bound of number of partitions
 
 T: 185 # time horizon
-T_post_processing: 70 # time horizon for disaggregating routes
+T_post_processing: 70 # Depreciated: time horizon for disaggregating routes
 DELTA_t: 1 # discrete time interval in minutes
 beta: 0 # x DEPRECIATED: DELTA_t (mins) time flexibility budget
 VEH_CAP: 16 # vehicle capacity
@@ -50,15 +50,15 @@ LAMBDA: 0.33 # penalization coefficient for ATT-SPTT ratio term
 THETA: 10 # penalization coefficient of graph coarsening objective function
 
 # Gurobi parameters of m2m model
-TIME_LIMIT: .inf # seconds
+TIME_LIMIT: 600 # seconds
 MIP_GAP: 0.1
 
 # Gurobi parameters of graph coarsening model
 TIME_LIMIT_GC: 200 # seconds
 MIP_GAP_GC: 0.1
 
-ITER_LIMIT_MC_M2M: 3 # limit of mc-m2m iteration
-ITER_LIMIT_M2M_GC: 1 # limit of m2m-gc iteration
+ITER_LIMIT_MC_M2M: 1 # limit of mc-m2m iteration
+ITER_LIMIT_M2M_GC: 3 # limit of m2m-gc iteration
 
 # Utility file location
 Station_agg: "Data\\temp\\Station_agg.p" # agg station info filepath

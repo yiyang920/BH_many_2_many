@@ -30,8 +30,8 @@ def direct_disagg(
     ctr_disagg ->  a dictionary with key as zones and values be the set of neighbor
             zones for the key including the key itself (disaggregated network)
     """
-    # time horizon of one tour of all drivers
-    T = config["T_post_processing"]
+    # time horizon of entire optimization
+    T = config["T"]
     # number of disagg zones
     S = config["S_disagg"]
 
@@ -381,6 +381,34 @@ def direct_disagg(
                         Route_D_disagg[d] += sub_station
                     elif p_size == 1:
                         ds[d] = station_list[0]
+    Tour_d, Dur_d = dict(), dict()
+    for d, route in Route_D_disagg.items():
+        Tour_d[d] = int(T // route[-1][1])
+        Dur_d[d] = route[-1][1]
+    Route_D_disagg = {
+        d: [
+            (t1, t2, s1, s2, t1 * config["S_disagg"] + s1, t2 * config["S_disagg"] + s2)
+            for (t1, t2, s1, s2) in route
+        ]
+        for d, route in Route_D_disagg.items()
+    }
+    foo = list()
+    for d, tour in Tour_d.items():
+        if tour > 1:
+            for m in range(1, tour):
+                foo += [
+                    (
+                        t1 + m * Dur_d[d],
+                        t2 + m * Dur_d[d],
+                        s1,
+                        s2,
+                        (t1 + m * Dur_d[d]) * config["S_disagg"] + s1,
+                        (t2 + m * Dur_d[d]) * config["S_disagg"] + s2,
+                    )
+                    for (t1, t2, s1, s2, _, _) in Route_D_disagg[d]
+                ]
+        Route_D_disagg[d] += foo
+
     return Route_D_disagg
 
 
