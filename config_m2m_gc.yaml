@@ -39,7 +39,7 @@ EPSILON: 2 # parameter controls the upper bound of partition size for epsilon-un
 
 # Graph coarsening model parameters
 S_disagg: 69 # number of aggregated zones
-K: 10 # upper bound of number of partitions
+K: 5 # upper bound of number of partitions
 
 T: 185 # time horizon
 T_post_processing: 70 # Depreciated: time horizon for disaggregating routes

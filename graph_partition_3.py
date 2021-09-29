@@ -20,7 +20,10 @@ def graph_coarsening(TN, D_uv, N, K, config):
     L = set(itertools.product(V, V))
     EV = set((u, v, c) for ((u, v), c) in itertools.product(E, V))
     LV = set((u, v, c) for (u, v, c) in itertools.product(V, V, V))
-
+    
+    d_sum = sum(D_uv.values())
+    d2_sum = sum(v ** 2 for v in D_uv.values())
+    
     ### Variables ###
     x = m.addVars(L, vtype=GRB.BINARY)
     y = m.addVars(LV, vtype=GRB.BINARY)
@@ -28,8 +31,8 @@ def graph_coarsening(TN, D_uv, N, K, config):
 
     ### Model Objective ###
     m.setObjective(
-        gp.quicksum(D_uv[u, v] * y[u, v, c] for (u, v, c) in LV)
-        + gp.quicksum(D_uv[u, v] ** 2 * (1 - y[u, v, c]) for (u, v, c) in LV),
+        gp.quicksum(D_uv[u, v] * y[u, v, c] for (u, v, c) in LV) / d_sum
+        + gp.quicksum(D_uv[u, v] ** 2 * (1 - y[u, v, c]) for (u, v, c) in LV) / d2_sum,
         sense=GRB.MINIMIZE,
     )
 
@@ -63,7 +66,7 @@ def graph_coarsening(TN, D_uv, N, K, config):
     )
     m.addConstrs(
         (
-            gp.quicksum(f[i, j, c] for (i, j) in TN.in_edges(v)) - (N - 1) * x[v, c]
+            gp.quicksum(f[i, j, c] for (i, j) in TN.in_edges(v)) - (N - K) * x[v, c]
             <= 0
             for c in V
             for v in V
@@ -155,7 +158,7 @@ if __name__ == "__main__":
         P_N, P_L = dict(), dict()
 
         for (u, c) in X:
-            _ = P_N.setdefault(c, [c]).append(u)
+            _ = P_N.setdefault(c, []).append(u)
 
         for (u, v, c) in Y:
             _ = P_L.setdefault(c, []).append((u, v))
@@ -175,15 +178,15 @@ if __name__ == "__main__":
         G = TN.subgraph(part)
         if not nx.is_strongly_connected(G):
             print("Warning: Partition does not form a subgraph! {}: {}".format(p, part))
-        # Update agg_2_disagg_id and disagg_2_agg_id
-        agg_2_disagg_id = dict()
-        # Mapping from origin aggregated zone id to new aggregated zone id
-        # of bus-visited aggregated zones, should be 1-to-1 mapping
-        agg_2_agg_new_bus = dict()
-        for idx, c in enumerate(P_N.keys()):
-            agg_2_disagg_id[idx] = P_N[c]
-        # P_N excludes the zones with bus service, need to add those excluded zones
-        # into agg_2_disagg_id
+    # Update agg_2_disagg_id and disagg_2_agg_id
+    agg_2_disagg_id = dict()
+    # Mapping from origin aggregated zone id to new aggregated zone id
+    # of bus-visited aggregated zones, should be 1-to-1 mapping
+    agg_2_agg_new_bus = dict()
+    for idx, c in enumerate(P_N.keys()):
+        agg_2_disagg_id[idx] = P_N[c]
+    # P_N excludes the zones with bus service, need to add those excluded zones
+    # into agg_2_disagg_id
 
     agg_2_disagg_id_bus = {}
     for idx, (part, nodes) in enumerate(agg_2_disagg_id_bus.items()):
