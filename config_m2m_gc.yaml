@@ -54,7 +54,7 @@ TIME_LIMIT: 600 # seconds
 MIP_GAP: 0.1
 
 # Gurobi parameters of graph coarsening model
-TIME_LIMIT_GC: 1000 # seconds
+TIME_LIMIT_GC: 5000 # seconds
 MIP_GAP_GC: 0.1
 
 ITER_LIMIT_MC_M2M: 1 # limit of mc-m2m iteration
