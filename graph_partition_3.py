@@ -43,7 +43,11 @@ def graph_coarsening(TN, D_uv, N, K, config):
     )
     m.addConstr(
         (gp.quicksum(x[v, v] for v in V) == K),
-        "num_of_partitions",
+        "num_of_partitions1",
+    )
+    m.addConstrs(
+        (gp.quicksum(x[v, c] for v in V) <= (N - K) * x[c, c] for c in V),
+        "num_of_partitions2"
     )
     m.addConstrs(
         (x[u, c] + x[v, c] - 2 * y[u, v, c] >= 0 for (u, v, c) in LV),
@@ -140,13 +144,13 @@ if __name__ == "__main__":
 
     # extract solutions
     if m.status == GRB.TIME_LIMIT:
-        X = {(u, c) for (u, c) in L if x[u, c].x > 0.001}
-        Y = {(u, v, c) for (u, v, c) in LV if y[u, v, c].x > 0.001}
+        X = {(u, c) for (u, c) in L if round(x[u, c].x)}
+        Y = {(u, v, c) for (u, v, c) in LV if round(y[u, v, c].x)}
 
         P_N, P_L = dict(), dict()
 
         for (u, c) in X:
-            _ = P_N.setdefault(c, [c]).append(u)
+            _ = P_N.setdefault(c, []).append(u)
 
         for (u, v, c) in Y:
             _ = P_L.setdefault(c, []).append((u, v))
