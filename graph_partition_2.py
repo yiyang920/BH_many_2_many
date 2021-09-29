@@ -27,6 +27,13 @@ def graph_coarsening(V, D_l, E, K, config):
     m.ObjVal -- objective value
     """
 
+    E2 = set()
+    for e in E:
+        if e[1] > e[0]:
+            E2.add(e)
+        else:
+            E2.add((e[1], e[0]))
+    E = E2
     VK = set((v, k) for (v, k) in itertools.product(list(V), range(K)))
     EK = set((u, v, k) for ((u, v), k) in itertools.product(list(E), range(K)))
     LK = set((u, v, k) for (u, v, k) in itertools.product(list(V), list(V), range(K)))
@@ -52,7 +59,7 @@ def graph_coarsening(V, D_l, E, K, config):
     #     GRB.MAXIMIZE,
     # )
     m.setObjective(
-        gp.quicksum((AV[v] + GV[v]) * x[v, k] for (v, k) in VK)
+        gp.quicksum(D_l[u, v] ** 2 * (1 - z[u, v, k]) for (u, v, k) in LK)
         + gp.quicksum(D_l[u, v] * z[u, v, k] for (u, v, k) in LK),
         GRB.MINIMIZE,
     )
@@ -81,7 +88,9 @@ def graph_coarsening(V, D_l, E, K, config):
     m.addConstrs(
         (
             gp.quicksum(w[u, v, k] for (u, v) in E)
-            == gp.quicksum(x[v, k] for v in V) - 1
+            - gp.quicksum(x[v, k] for v in V)
+            + 1
+            == 0
             for k in range(K)
         ),
         "spanning_tree_1",
@@ -89,12 +98,11 @@ def graph_coarsening(V, D_l, E, K, config):
 
     m.addConstrs(
         (
-            gp.quicksum(w[u, vv, k] for (u, vv) in E if vv == v)
-            + gp.quicksum(w[vv, u, k] for (vv, u) in E if vv == v)
+            gp.quicksum(w[u, j, k] for (u, j) in E if j == v)
+            + gp.quicksum(w[j, u, k] for (j, u) in E if j == v)
             - x[v, k]
             >= 0
-            for k in range(K)
-            for v in V
+            for (v, k) in VK
         ),
         "spanning_tree_2",
     )

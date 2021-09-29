@@ -63,6 +63,11 @@ def get_link_set_disagg(config):
         for j in ctr[i]:
             G.add_edge(i, j)
 
+    # G2 = nx.Graph()
+    # for i in range(config["S_disagg"]):
+    #     for j in ctr[i]:
+    #         if i < j:
+    #             G2.add_edge(i, j)
     L_l = set(G.edges())
 
     temp_dir = config["m2m_output_loc"] + "temp\\"

@@ -39,7 +39,7 @@ EPSILON: 2 # parameter controls the upper bound of partition size for epsilon-un
 
 # Graph coarsening model parameters
 S_disagg: 69 # number of aggregated zones
-K: 35 # upper bound of number of partitions
+K: 10 # upper bound of number of partitions
 
 T: 185 # time horizon
 T_post_processing: 70 # Depreciated: time horizon for disaggregating routes
@@ -54,7 +54,7 @@ TIME_LIMIT: 600 # seconds
 MIP_GAP: 0.1
 
 # Gurobi parameters of graph coarsening model
-TIME_LIMIT_GC: 200 # seconds
+TIME_LIMIT_GC: 1000 # seconds
 MIP_GAP_GC: 0.1
 
 ITER_LIMIT_MC_M2M: 1 # limit of mc-m2m iteration
