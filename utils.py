@@ -18,6 +18,7 @@ import pandas as pd
 import geopandas as gpd
 from mpl_toolkits.basemap import Basemap
 from python_tsp.exact import solve_tsp_dynamic_programming
+from python_tsp.heuristics import solve_tsp_simulated_annealing
 from collections import deque
 
 # from python_tsp.distances import great_circle_distance_matrix
@@ -684,7 +685,7 @@ def post_processing(Route_D, config, agg_2_disagg_id=None):
     Route_D_disagg = {}
     if config["REPEATED_TOUR"]:
         for d in driver_set:
-            distance_matrix = np.zeros((len(c_dict[d]), len(c_dict[d])))
+            distance_matrix = np.full((len(c_dict[d]), len(c_dict[d])), float("inf"))
             for i in range(len(c_dict[d])):
                 for j in range(len(c_dict[d])):
                     distance_matrix[i, j] = tau[pth_dict[d][i], pth_dict[d][j]]
@@ -866,13 +867,14 @@ def update_tau_agg(ctr_agg, tau_disagg, agg_2_disagg_id, config):
     tsp_c = dict()
     for c in ctr_agg.keys():
         p_size = len(agg_2_disagg_id[c])
-        distance_matrix = np.zeros((p_size, p_size))
+        distance_matrix = np.full((p_size, p_size), float("inf"))
         for i in range(p_size):
             for j in range(p_size):
                 distance_matrix[i, j] = tau_disagg[
                     agg_2_disagg_id[c][i], agg_2_disagg_id[c][j]
                 ]
 
+        # _, tsp_c[c] = solve_tsp_simulated_annealing(distance_matrix)
         _, tsp_c[c] = solve_tsp_dynamic_programming(distance_matrix)
 
     G = nx.Graph()
