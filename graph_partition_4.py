@@ -25,13 +25,13 @@ def graph_coarsening(TN, D_uv, N, K, config):
     V = set(i for i in range(N))
     E = set((u, v) for (u, v) in TN.edges())
     L = set(itertools.product(V, V))
-    EV = set((u, v, c) for ((u, v), c) in itertools.product(E, V))
+    # EV = set((u, v, c) for ((u, v), c) in itertools.product(E, V))
     LV = set((u, v, c) for (u, v, c) in itertools.product(V, V, V))
     EL = set((u, v, a, c) for ((u, v), a, c) in itertools.product(E, V, V))
-    
+
     d_sum = sum(D_uv.values())
     d2_sum = sum(v ** 2 for v in D_uv.values())
-    
+
     ### Variables ###
     x = m.addVars(L, vtype=GRB.BINARY)
     y = m.addVars(LV, vtype=GRB.BINARY)
@@ -53,10 +53,7 @@ def graph_coarsening(TN, D_uv, N, K, config):
         (gp.quicksum(x[v, v] for v in V) == K),
         "num_of_partitions1",
     )
-    m.addConstrs(
-        (x[v, c] <= x[c, c] for c in V for v in V),
-        "num_of_partitions2"
-    )
+    m.addConstrs((x[v, c] <= x[c, c] for c in V for v in V), "num_of_partitions2")
     m.addConstrs(
         (x[u, c] + x[v, c] - 2 * y[u, v, c] >= 0 for (u, v, c) in LV),
         "node_link_1",
@@ -67,8 +64,8 @@ def graph_coarsening(TN, D_uv, N, K, config):
     )
     m.addConstrs(
         (
-            gp.quicksum(f[i, j, a, c] for (i, j) in TN.out_edges(c)) -
-            gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(c))
+            gp.quicksum(f[i, j, a, c] for (i, j) in TN.out_edges(c))
+            - gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(c))
             == x[a, c]
             for c in V
             for a in V
@@ -78,8 +75,8 @@ def graph_coarsening(TN, D_uv, N, K, config):
     )
     m.addConstrs(
         (
-            gp.quicksum(f[i, j, a, c] for (i, j) in TN.out_edges(b)) -
-            gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(b))
+            gp.quicksum(f[i, j, a, c] for (i, j) in TN.out_edges(b))
+            - gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(b))
             == 0
             for c in V
             for a in V
@@ -91,12 +88,24 @@ def graph_coarsening(TN, D_uv, N, K, config):
         "flow_balance_2",
     )
     m.addConstrs(
-        (gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(c)) == 0 for c in V for a in V if a != c),
+        (
+            gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(c)) == 0
+            for c in V
+            for a in V
+            if a != c
+        ),
         "flow_balance_3",
     )
-    
+
     m.addConstrs(
-        (gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(b)) <= x[b, c] for c in V for a in V if a != c for b in V if b != c),
+        (
+            gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(b)) <= x[b, c]
+            for c in V
+            for a in V
+            if a != c
+            for b in V
+            if b != c
+        ),
         "flow_balance_4",
     )
 
