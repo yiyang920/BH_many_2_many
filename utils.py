@@ -194,16 +194,7 @@ def load_mc_input(config):
     return per_time, per_dist, per_emp, mdot_dat, dests_geo, D
 
 
-def load_mc_input_2(
-    config: dict,
-) -> tuple[
-    dict[int, int],
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-    pd.DataFrame,
-]:
+def load_mc_input_2(config):
     """
     Load trip-based travel demand model input data,
     and return a zoneid-to-geoid converter.
@@ -252,12 +243,7 @@ def load_mc_input_2(
     )
 
 
-def disagg_2_agg_trip(
-    transit_trips_dict: dict[tuple[int, int], float],
-    config: dict[str, Any],
-    disagg_2_agg_id: dict[int, int] = None,
-    fraction: float = 0.6,
-) -> dict[tuple[int, int], int]:
+def disagg_2_agg_trip(transit_trips_dict, config, disagg_2_agg_id, fraction):
     """
     Convert disaggregated trips into aggregated trips
     Rider info: Rounding trip number with threshold 0.5

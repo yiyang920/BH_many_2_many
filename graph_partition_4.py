@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct  6 11:45:34 2021
+
+@author: atafresh1
+"""
+
 # %% Packages
 import itertools
 import gurobipy as gp
@@ -20,6 +27,7 @@ def graph_coarsening(TN, D_uv, N, K, config):
     L = set(itertools.product(V, V))
     EV = set((u, v, c) for ((u, v), c) in itertools.product(E, V))
     LV = set((u, v, c) for (u, v, c) in itertools.product(V, V, V))
+    EL = set((u, v, a, c) for ((u, v), a, c) in itertools.product(E, V, V))
     
     d_sum = sum(D_uv.values())
     d2_sum = sum(v ** 2 for v in D_uv.values())
@@ -27,7 +35,7 @@ def graph_coarsening(TN, D_uv, N, K, config):
     ### Variables ###
     x = m.addVars(L, vtype=GRB.BINARY)
     y = m.addVars(LV, vtype=GRB.BINARY)
-    f = m.addVars(EV)
+    f = m.addVars(EL)
 
     ### Model Objective ###
     m.setObjective(
@@ -59,28 +67,37 @@ def graph_coarsening(TN, D_uv, N, K, config):
     )
     m.addConstrs(
         (
-            gp.quicksum(f[i, j, c] for (i, j) in TN.in_edges(v))
-            - gp.quicksum(f[i, j, c] for (i, j) in TN.out_edges(v))
-            == x[v, c]
+            gp.quicksum(f[i, j, a, c] for (i, j) in TN.out_edges(c)) -
+            gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(c))
+            == x[a, c]
             for c in V
-            for v in V
-            if v != c
+            for a in V
+            if a != c
         ),
         "flow_balance_1",
     )
     m.addConstrs(
         (
-            gp.quicksum(f[i, j, c] for (i, j) in TN.in_edges(v)) - (N - K) * x[v, c]
-            <= 0
+            gp.quicksum(f[i, j, a, c] for (i, j) in TN.out_edges(b)) -
+            gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(b))
+            == 0
             for c in V
-            for v in V
-            if v != c
+            for a in V
+            if a != c
+            for b in V
+            if b != a
+            if b != c
         ),
         "flow_balance_2",
     )
     m.addConstrs(
-        (gp.quicksum(f[i, j, c] for (i, j) in TN.in_edges(c)) == 0 for c in V),
+        (gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(c)) == 0 for c in V for a in V if a != c),
         "flow_balance_3",
+    )
+    
+    m.addConstrs(
+        (gp.quicksum(f[i, j, a, c] for (i, j) in TN.in_edges(b)) <= x[b, c] for c in V for a in V if a != c for b in V if b != c),
+        "flow_balance_4",
     )
 
     return (m, x, y, f, L, LV)
