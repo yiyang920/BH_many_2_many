@@ -39,7 +39,7 @@ EPSILON: 2 # parameter controls the upper bound of partition size for epsilon-un
 
 # Graph coarsening model parameters
 S_disagg: 69 # number of aggregated zones
-K: 5 # upper bound of number of partitions
+K: 10 # upper bound of number of partitions
 
 T: 185 # time horizon
 T_post_processing: 70 # Depreciated: time horizon for disaggregating routes
@@ -47,7 +47,7 @@ DELTA_t: 1 # discrete time interval in minutes
 beta: 0 # x DEPRECIATED: DELTA_t (mins) time flexibility budget
 VEH_CAP: 16 # vehicle capacity
 LAMBDA: 0.33 # penalization coefficient for ATT-SPTT ratio term
-THETA: 10 # penalization coefficient of graph coarsening objective function
+THETA: 5 # penalization coefficient of graph coarsening objective function
 
 # Gurobi parameters of m2m model
 TIME_LIMIT: 600 # seconds
