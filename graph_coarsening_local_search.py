@@ -86,8 +86,8 @@ def local_search(TN, D_uv, N, K, config):
         # print("border",border)
         border_random = np.random.permutation(list(border))
         for v in border_random:
-            # if len(PV[VP[v]]) < 2:
-            #     continue
+            if len(PV[VP[v]]) < 2:
+                continue
             if FIND_GRADIANT >= 0:
 
                 bridges[FIND_GRADIANT] = {

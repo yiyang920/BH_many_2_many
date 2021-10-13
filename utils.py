@@ -859,9 +859,10 @@ def update_tau_agg(ctr_agg, tau_disagg, agg_2_disagg_id, config):
                 distance_matrix[i, j] = tau_disagg[
                     agg_2_disagg_id[c][i], agg_2_disagg_id[c][j]
                 ]
-
-        _, tsp_c[c] = solve_tsp_simulated_annealing(distance_matrix)
-        # _, tsp_c[c] = solve_tsp_dynamic_programming(distance_matrix)
+        try:
+            _, tsp_c[c] = solve_tsp_simulated_annealing(distance_matrix)
+        except:
+            _, tsp_c[c] = solve_tsp_dynamic_programming(distance_matrix)
 
     G = nx.Graph()
     for i in range(len(ctr_agg)):
