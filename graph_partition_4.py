@@ -26,7 +26,7 @@ def graph_coarsening(TN, D_uv, N, K, config):
     V = set(i for i in range(N))
     E = set((u, v) for (u, v) in TN.edges())
     L = set(itertools.product(V, V))
-    EV = set((u, v, c) for ((u, v), c) in itertools.product(E, V))
+    # EV = set((u, v, c) for ((u, v), c) in itertools.product(E, V))
     LV = set((u, v, c) for (u, v, c) in itertools.product(V, V, V))
     EL = set((u, v, a, c) for ((u, v), a, c) in itertools.product(E, V, V))
 
@@ -122,8 +122,8 @@ if __name__ == "__main__":
         load_mc_input,
         load_neighbor_disagg,
         get_link_set_disagg,
-        get_link_cost,
-        post_processing,
+        # get_link_cost,
+        # post_processing,
         network_plot,
         update_tau_agg,
         load_tau_disagg,
