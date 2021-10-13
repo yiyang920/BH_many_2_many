@@ -26,7 +26,7 @@ def BFS(TN, C_init, VP):
                 seen.add(v)
                 N2 = list(set(TN.neighbors(u)) - interset)
                 if N2:
-                    queue.append(N2)
+                    queue.extend(N2)
     return TN, bridges, PV, VP
 
 
