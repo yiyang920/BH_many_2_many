@@ -64,8 +64,8 @@ def local_search(TN, D_uv, N, K, config):
 
     V = set(i for i in range(N))
     E = set((u, v) for (u, v) in TN.edges())
-    LV = set((u, v, c) for (u, v, c) in product(V, V, V))
-    EL = set((u, v, a, c) for ((u, v), a, c) in product(E, V, V))
+    # LV = set((u, v, c) for (u, v, c) in product(V, V, V))
+    # EL = set((u, v, a, c) for ((u, v), a, c) in product(E, V, V))
 
     # Generate initial supernodes
     C_init = sample(list(V), K)
