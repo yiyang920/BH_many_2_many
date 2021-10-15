@@ -492,12 +492,12 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
                         n2 + (m * Duration_d[d]) * S,
                     )
                     if (d, n1_foo, n2_foo) in DL_d and (d, n1_foo, n2_foo) not in seen:
-                        x[d, n1_foo, n2_foo].lb = 1
-                        x[d, n1_foo, n2_foo].ub = 1
+                        x[d, n1_foo, n2_foo].LB = 1
+                        x[d, n1_foo, n2_foo].UB = 1
                         seen.add((d, n1_foo, n2_foo))
             else:
-                x[d, n1, n2].lb = 0
-                x[d, n1, n2].ub = 0
+                x[d, n1, n2].LB = 0
+                x[d, n1, n2].UB = 0
 
         m.update()
 
