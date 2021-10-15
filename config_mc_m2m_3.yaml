@@ -47,7 +47,7 @@ LAMBDA: 0.33 # penalization coefficient for ATT-SPTT ratio term
 
 # Gurobi parameters
 TIME_LIMIT: .inf
-MIP_GAP: 1e-4
+MIP_GAP: 1.0e-4
 
 
 ITER_LIMIT: 1 # number of mc-m2m iteration
