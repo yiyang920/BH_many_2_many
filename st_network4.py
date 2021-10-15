@@ -499,7 +499,6 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
                 x[d, n1, n2].lb = 0
                 x[d, n1, n2].ub = 0
 
-
         m.update()
 
     ### Objective ###
@@ -671,6 +670,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
 
     m.params.TimeLimit = TL
     m.params.MIPGap = MIP_GAP
+    m.params.OutputFlag = 1
     m.optimize()
 
     if m.status == GRB.TIME_LIMIT:
