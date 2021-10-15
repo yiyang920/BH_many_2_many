@@ -490,9 +490,11 @@ def load_scen_FR(config):
     Read all fixed route in the folder
     Load disaggregated fixed route infomation
     """
+    V = set()
     route_d = dict()
     for i, route in enumerate(config["FR_list"]):
         route_d[i] = pd.read_csv(config["m2m_data_loc"] + route)
+        V.update(set(route_d[i].s))
 
     FR = {
         d: [
@@ -514,7 +516,7 @@ def load_scen_FR(config):
         for d, df in route_d.items()
     }
 
-    return FR if config["FIXED_ROUTE"] else None
+    return (FR, V) if config["FIXED_ROUTE"] else None
 
 
 def get_driver(config):

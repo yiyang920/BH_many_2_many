@@ -16,6 +16,8 @@ from gurobipy import GRB
 
 def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, SP_r=None):
     """
+    This version considers flexible driver's depot.
+    
     tau := zone-to-zone travel time numpy array
     tau2 := zone-to-zone travel time numpy array with diagonal elements equal to one
     ctr := a dictionary with key as zones and values be the set of neighbor zones for the key including the key itself

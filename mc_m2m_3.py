@@ -17,7 +17,7 @@ import os
 import csv
 import yaml
 
-from st_network2 import Many2Many
+from st_network4 import Many2Many
 from trip_prediction2 import trip_prediction
 
 from utils import (
@@ -78,8 +78,9 @@ disagg_2_agg_id = {k: k for k in range(config["S_disagg"])}
 # %% Mode choice - many to many problem iteration
 # Generate driver information
 # Load fixed routed infomation
-FR = load_scen_FR(config)
+FR, V = load_scen_FR(config)
 Driver = get_driver_disagg(config)
+
 
 MR_list = list()
 R_list = list()
@@ -148,7 +149,7 @@ while ITER_LIMIT and not (OBJ and OBJ_set and OBJ in OBJ_set):
     # Run many-to-many model
     if not config["DEBUG_MODE"]:
         (X, U, Y, Route_D, mr, OBJ, R_match) = Many2Many(
-            Rider, Driver, tau, tau2, ctr, config, fixed_route_D=FR
+            Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=FR
         )
         print("optimization finished, matching rate: {}%".format(mr * 100))
 
