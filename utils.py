@@ -243,7 +243,7 @@ def load_mc_input_2(config):
     )
 
 
-def disagg_2_agg_trip(transit_trips_dict, config, disagg_2_agg_id, fraction):
+def disagg_2_agg_trip(transit_trips_dict, config, disagg_2_agg_id=None, fraction=0.6):
     """
     Convert disaggregated trips into aggregated trips
     Rider info: Rounding trip number with threshold 0.5
@@ -485,6 +485,38 @@ def load_FR_disagg(config):
     return FR
 
 
+def load_scen_FR(config):
+    """
+    Read all fixed route in the folder
+    Load disaggregated fixed route infomation
+    """
+    route_d = dict()
+    for i, route in enumerate(config["FR_list"]):
+        route_d[i] = pd.read_csv(config["m2m_data_loc"] + route)
+
+    FR = {
+        d: [
+            (
+                t1,
+                t2,
+                s1,
+                s2,
+                t1 * config["S_disagg"] + s1,
+                t2 * config["S_disagg"] + s2,
+            )
+            for (t1, t2, s1, s2) in zip(
+                df.t.iloc[:-1],
+                df.t.iloc[1:],
+                df.s.iloc[:-1],
+                df.s.iloc[1:],
+            )
+        ]
+        for d, df in route_d.items()
+    }
+
+    return FR if config["FIXED_ROUTE"] else None
+
+
 def get_driver(config):
     """
     Load driver information in aggregated network.
@@ -493,6 +525,18 @@ def get_driver(config):
         Driver = pd.read_csv(config["m2m_data_loc"] + r"Driver_rt_agg.csv")
     else:
         Driver = pd.read_csv(config["m2m_data_loc"] + r"Driver_agg.csv")
+
+    return Driver.to_numpy(dtype=int, na_value=999)
+
+
+def get_driver_disagg(config):
+    """
+    Load driver information in disaggregated network.
+    """
+    if config["REPEATED_TOUR"]:
+        Driver = pd.read_csv(config["m2m_data_loc"] + r"Driver_rt_disagg.csv")
+    else:
+        Driver = pd.read_csv(config["m2m_data_loc"] + r"Driver_disagg.csv")
 
     return Driver.to_numpy(dtype=int, na_value=999)
 
@@ -1154,6 +1198,8 @@ def plot_metric(Y, num_R, config, ITER):
 
     plt.close()
     print("Max ATT-SPTT Ratio: {}".format(max(ratio_list)))
+
+    return n_transfer, ratio_list
 
 
 def plot_mr(mr_list, config):
