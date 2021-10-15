@@ -482,14 +482,24 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
     u = m.addVars(RD, vtype=GRB.BINARY, name="u")
     z = m.addVars(R, vtype=GRB.BINARY, name="z")
 
+    seen = set()
     if FIXED_ROUTE and fixed_route_D != None:
-        for (d, n1, n2) in FRL_d:
-            x[d, n1, n2].lb = 1
-            x[d, n1, n2].ub = 1
-        # for (d, n1, n2) in DL_d:
-        #     if (d, n1, n2) not in FRL_d:
-        #         x[d, n1, n2].lb = 0
-        #         x[d, n1, n2].ub = 0
+        for (d, n1, n2) in DL_d:
+            if (d, n1, n2) in FRL_d:
+                for m in range(num_tour[d]):
+                    n1_foo, n2_foo = (
+                        n1 + (m * Duration_d[d]) * S,
+                        n2 + (m * Duration_d[d]) * S,
+                    )
+                    if (d, n1_foo, n2_foo) in DL_d and (d, n1_foo, n2_foo) not in seen:
+                        x[d, n1_foo, n2_foo].lb = 1
+                        x[d, n1_foo, n2_foo].ub = 1
+                        seen.add((d, n1_foo, n2_foo))
+            else:
+                x[d, n1, n2].lb = 0
+                x[d, n1, n2].ub = 0
+
+
         m.update()
 
     ### Objective ###
