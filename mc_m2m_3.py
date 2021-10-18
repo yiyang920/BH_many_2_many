@@ -27,10 +27,11 @@ from utils import (
     disagg_2_agg_trip,
     get_rider,
     get_driver_disagg,
-    load_FR_disagg,
-    get_driver,
-    post_processing,
-    plot_metric,
+    # load_FR_disagg,
+    # get_driver,
+    plot_metric_disagg,
+    # post_processing,
+    # plot_metric,
     plot_mr,
     plot_r,
     travel_demand_plot,
@@ -186,7 +187,7 @@ while ITER_LIMIT and not (OBJ and OBJ_set and OBJ in OBJ_set):
     #     Route_D_disagg.update(Route_fr_disagg)
 
     # Plot metrics
-    n_transfer, ratio_list = plot_metric(
+    n_transfer, ratio_list = plot_metric_disagg(
         Y, np.size(Rider, 0), config, config["ITER_LIMIT"] - ITER_LIMIT
     )
     pickle.dump(

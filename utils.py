@@ -1204,6 +1204,129 @@ def plot_metric(Y, num_R, config, ITER):
     return n_transfer, ratio_list
 
 
+def plot_metric_disagg(Y, num_R, config, ITER):
+    """
+    generate distribution of detours plot and distribution of "actual travel time -
+    shortest path travel time" ratio. used for disaggregated network
+    """
+    figure_pth = config["figure_pth"]
+
+    if not os.path.exists(figure_pth):
+        os.makedirs(figure_pth)
+    Y = [
+        (
+            r,
+            d,
+            n1 // config["S"],
+            n2 // config["S"],
+            n1 % config["S"],
+            n2 % config["S"],
+            n1,
+            n2,
+        )
+        for (r, d, n1, n2) in Y
+    ]
+    Y = sorted(Y, key=operator.itemgetter(0, 2))
+
+    num_served = len(set(y[0] for y in Y))  # number of served rider
+
+    Y_rdl = pd.DataFrame(Y, columns=["r", "d", "t1", "t2", "s1", "s2", "n1", "n2"])
+
+    Y_rdl.r = Y_rdl.r.astype("int64")
+    r_transfer = {}
+
+    dumm_d = (
+        max(config["driver_set"]) + 1
+        if config["driver_set"]
+        else len(config["FR_list"]) + 1
+    )
+    for (r, d) in zip(Y_rdl.r, Y_rdl.d):
+        if d != dumm_d:
+            r_transfer.setdefault(r, set()).add(d)
+
+    n_transfer = {}
+    for r, D in r_transfer.items():
+        n_transfer.setdefault(len(D) - 1, 0)
+        n_transfer[len(D) - 1] += 1
+
+    # calculate percentage:
+    # n_transfer = {k: v / num_R * 100 for (k, v) in n_transfer.items()}
+    n_transfer = {k: v / num_served for (k, v) in n_transfer.items()}
+
+    # plot the distribution of transfers
+    fig1, ax1 = plt.subplots()
+    ax1.bar(n_transfer.keys(), n_transfer.values())
+    ax1.set_xlabel("Number of transfers")
+    ax1.set_ylabel("Percentage of passengers")
+    # ax1.set_title("Distribution of transfers")
+    ax1.set_xticks(np.arange(max(n_transfer.keys()) + 1))
+
+    ax1.yaxis.set_major_formatter(PercentFormatter(1.0))
+    ax1.set_ylim(bottom=0, top=1.0)
+
+    fig1.savefig(
+        figure_pth + r"Distribution of transfers for riders_iter{}.png".format(ITER),
+        bbox_inches="tight",
+        dpi=100,
+    )
+    plt.close()
+
+    (tau_disagg, _) = load_tau_disagg(config)  # load shortest path travel time matrix
+
+    trajectory_r = {
+        rider: Y_rdl.loc[Y_rdl.r == rider, ["t1", "t2", "s1", "s2"]]
+        for rider in Y_rdl.r.unique()
+    }
+
+    rider_info = {}
+    for rider, table in trajectory_r.items():
+        rider_info[rider] = {}
+        rider_info[rider]["O"] = int(table.s1.iloc[0])
+        rider_info[rider]["D"] = int(table.s2.iloc[-1])
+        rider_info[rider]["duration"] = table.t2.iloc[-1] - table.t1.iloc[0]
+        rider_info[rider]["shostest_path_duration"] = tau_disagg[
+            rider_info[rider]["O"], rider_info[rider]["D"]
+        ]
+        rider_info[rider]["duration_ratio"] = (
+            (
+                rider_info[rider]["duration"]
+                / rider_info[rider]["shostest_path_duration"]
+            )
+            if rider_info[rider]["shostest_path_duration"] > 0
+            else 1
+            if rider_info[rider]["duration"] == 0
+            else float("inf")
+        )
+
+    # plot the histogram of Travel time/Shortest path travel time
+    fig2, ax2 = plt.subplots()
+    ratio_list = [
+        rider_info[rider]["duration_ratio"]
+        for rider in rider_info.keys()
+        if rider_info[rider]["duration_ratio"] < float("inf")
+    ]
+    ax2.hist(ratio_list, bins=20, weights=np.ones(len(ratio_list)) / len(ratio_list))
+    ax2.set_xlabel("Travel time/Shortest path travel time")
+    ax2.set_ylabel("Percentage of passengers")
+    ax2.set_title("Distribution of travel time/Shortest path travel time")
+
+    ax2.set_xticks(np.arange(1, 1 // config["LAMBDA"] + 1))
+
+    ax2.yaxis.set_major_formatter(PercentFormatter(1.0))
+    ax2.set_ylim(bottom=0, top=1.0)
+
+    fig2.savefig(
+        figure_pth + r"Distribution of ratio{}.png".format(ITER),
+        bbox_inches="tight",
+        dpi=100,
+    )
+
+    plt.close()
+    print("Max ATT-SPTT Ratio: {}".format(max(ratio_list)))
+
+    return n_transfer, ratio_list
+
+
 def plot_mr(mr_list, config):
     """
     Plot the matching rates over iterations

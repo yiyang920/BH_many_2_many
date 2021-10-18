@@ -55,14 +55,14 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
     # Time expanded network
     TN = nx.DiGraph()
     for t in range(Tmin, Tmax + 1):
-        for i in range(S):
-            for j in ctr[i]:
+        for i in V:
+            for j in set(ctr[i]) & V:
                 if t + tau2[i, j] <= T:
                     TN.add_edge(
                         t * S + i, (t + tau2[i, j]) * S + j
                     )  # Every node in time-expaned network is defined as t_i*S+s_i
                     # which maps (t_i,s_i) into a unique n_i value
-    TN = TN.subgraph({t * S + i for t in range(Tmin, Tmax + 1) for i in V})
+    # TN = TN.subgraph({t * S + i for t in range(Tmin, Tmax + 1) for i in V})
     # ---------------------------------------------------------
     # Rider data
     R, O_r, D_r, ED_r, LA_r, SP_r, TW_r, T_r, V_r = gp.multidict(
@@ -453,18 +453,14 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
     # value as array of time (first column) and stop (second column)
     if FIXED_ROUTE and fixed_route_D != None:
         FR_d = dict()
-        for d in fixed_route_D:
-            FR_d[d] = list()
-
-        for d in fixed_route_D:
-            for i in range(len(fixed_route_D[d]) - 1):
+        for d in fixed_route_D.keys():
+            for (t1, t2, s1, s2, *_) in fixed_route_D[d]:
+                # for i in range(len(fixed_route_D[d])):
                 for j in range(num_tour[d]):
-                    FR_d[d].append(
+                    FR_d.setdefault(d, list()).append(
                         (
-                            (fixed_route_D[d][i][0] + j * (Duration_d[d])) * S
-                            + fixed_route_D[d][i][1],
-                            (fixed_route_D[d][i + 1][0] + j * (Duration_d[d])) * S
-                            + fixed_route_D[d][i + 1][1],
+                            (t1 + j * (Duration_d[d])) * S + s1,
+                            (t2 + j * (Duration_d[d])) * S + s2,
                         )
                     )
         FRL_d = set(
@@ -659,6 +655,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
             "fix_route1",
         )
 
+    m.params.Method = -1
     m.params.TimeLimit = TL
     m.params.MIPGap = MIP_GAP
     m.params.OutputFlag = 1
@@ -669,7 +666,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
         U = {e for e in RD if u[e].x > 0.001}
         Y = {e for e in RDL_rd if y[e].x > 0.001}
         R_match = {r for r in R if z[r].x > 0.001}
-        mr = sum(z[r].x for r in R) / len(R)
+        mr = sum(z[r].x for r in R) / len(Rider)
 
         Route_D = dict()
         for d in D:
@@ -690,7 +687,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
         U = {e for e in RD if u[e].x > 0.001}
         Y = {e for e in RDL_rd if y[e].x > 0.001}
         R_match = {r for r in R if z[r].x > 0.001}
-        mr = sum(z[r].x for r in R) / len(R)
+        mr = sum(z[r].x for r in R) / len(Rider)
 
         Route_D = dict()
         for d in D:
