@@ -487,10 +487,10 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
         for (d, n1, n2) in DL_d:
             if (d, n1, n2) in FRL_d:
                 stop1, stop2 = n1 % S, n2 % S
-                for m in range(num_tour[d]):
+                for count in range(num_tour[d]):
                     n1_foo, n2_foo = (
-                        stop1 + (m * Duration_d[d]) * S,
-                        stop2 + (m * Duration_d[d]) * S,
+                        stop1 + (count * Duration_d[d]) * S,
+                        stop2 + (count * Duration_d[d]) * S,
                     )
                     if (d, n1_foo, n2_foo) in DL_d and (d, n1_foo, n2_foo) not in seen:
                         x[d, n1_foo, n2_foo].LB = 1
