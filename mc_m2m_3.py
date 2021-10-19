@@ -44,6 +44,13 @@ from utils import (
 with open("config_mc_m2m_3.yaml", "r+") as fopen:
     config = yaml.load(fopen, Loader=yaml.FullLoader)
 
+if not os.path.exists(config["m2m_data_loc"]):
+    os.makedirs(config["m2m_data_loc"])
+if not os.path.exists(config["m2m_output_loc"]):
+    os.makedirs(config["m2m_output_loc"])
+if not os.path.exists(config["figure_pth"]):
+    os.makedirs(config["figure_pth"])
+
 # %% Load data
 DELTA_t = config["DELTA_t"]
 # Load neighbor nodes information (disagg)
@@ -194,7 +201,7 @@ while ITER_LIMIT and not (OBJ and OBJ_set and OBJ in OBJ_set):
         n_transfer,
         open(
             config["m2m_output_loc"]
-            + "n_transfer_{}".format(config["ITER_LIMIT"] - ITER_LIMIT),
+            + "n_transfer_{}.p".format(config["ITER_LIMIT"] - ITER_LIMIT),
             "wb",
         ),
     )
@@ -202,7 +209,7 @@ while ITER_LIMIT and not (OBJ and OBJ_set and OBJ in OBJ_set):
         ratio_list,
         open(
             config["m2m_output_loc"]
-            + "ratio_list_{}".format(config["ITER_LIMIT"] - ITER_LIMIT),
+            + "ratio_list_{}.p".format(config["ITER_LIMIT"] - ITER_LIMIT),
             "wb",
         ),
     )

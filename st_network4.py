@@ -325,6 +325,19 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, V, config, fixed_route_D=None):
                                 )  # need to be the first origin node
                                 if LA_d[d] in T_d[d][ind]:
                                     SN_d[d] = SN_d[d][SN_d[d] != LA_d[d] * S + O_d[d]]
+
+                                if num_tour[d] == 1:
+                                    EN_d[d] = (
+                                        T_d[d][ind] + m * (Duration_d[d])
+                                    ) * S + s  # need to be the last destination node
+                                    if ED_d[d] + m * (Duration_d[d]) in T_d[d][
+                                        ind
+                                    ] + m * (Duration_d[d]):
+                                        EN_d[d] = EN_d[d][
+                                            EN_d[d]
+                                            != (ED_d[d] + m * (Duration_d[d])) * S
+                                            + D_d[d]
+                                        ]
                                 # elif s == D_d[d]:
                             elif s == D_d[d] and m == T // (Duration_d[d]) - 1:
                                 EN_d[d] = (
