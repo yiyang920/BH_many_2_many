@@ -1238,7 +1238,7 @@ def plot_metric_disagg(Y, num_R, config, ITER):
     dumm_d = (
         max(config["driver_set"]) + 1
         if config["driver_set"]
-        else len(config["FR_list"]) + 1
+        else len(config["FR_list"])
     )
     for (r, d) in zip(Y_rdl.r, Y_rdl.d):
         if d != dumm_d:

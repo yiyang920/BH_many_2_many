@@ -5,6 +5,10 @@ DEMAND_MODEL: false
 FIXED_ROUTE: true
 FR_list:
 - blue_fr_1_disagg.csv
+- blue_fr_2_disagg.csv
+- red_revised_fr_1_disagg.csv
+- yellow_revised_fr_1_disagg.csv
+- brown_fr_1_disagg.csv
 G_d: Data\temp\G_d.p
 G_d_agg: Data\temp\G_d_agg.p
 G_t: Data\temp\G_t.p
