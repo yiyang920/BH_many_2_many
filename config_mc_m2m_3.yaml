@@ -27,8 +27,18 @@ build_on_list: # optimization based on previous optimized route
 FR_list: # csv file of all fixed routes in the scenario
   - "blue_fr_1_disagg.csv"
   - "blue_fr_2_disagg.csv"
+  # - "blue_revised_fr_1_disagg.csv"
+  # - "blue_revised_fr_2_disagg.csv"
   - "red_fr_1_disagg.csv"
+  # - "red_revised_fr_1_disagg.csv"
+  # - "red_revised_fr_2_disagg.csv"
   - "yellow_fr_1_disagg.csv"
+  # - "yellow_revised_fr_1_disagg.csv"
+  # - "yellow_revised_fr_2_disagg.csv"
+  # - "brown_fr_1_disagg.csv"
+  # - "brown_fr_2_disagg.csv"
+  # - "grey_fr_1_disagg.csv"
+  # - "grey_fr_1_disagg.csv"
 
 BUILD_ON: False # optimization based on previous optimized route
 FIXED_ROUTE: True # combined with existing fixed routes
