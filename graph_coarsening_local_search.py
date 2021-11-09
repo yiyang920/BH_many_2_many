@@ -51,18 +51,29 @@ def BFS(TN, C_init, VP):
     return TN, bridges, border, PV, VP
 
 
-def get_objective(D_uv, PV):
-    # return sum(sum(
-    #     sum(D_uv[u, v] + D_uv[v, u] for c2, p2 in PV.items() if c2 != c1 for v in p2)
-    #     for c1, p1 in PV.items()  # PV = {P:{v1, v2,....}}
+def get_objective(D_uv, PV, tau2_disagg):
+
+    # temp1 = sum(
+    #     D_uv.get((u, v), 0) + D_uv.get((v, u), 0)
+    #     for c1, p1 in PV.items()
+    #     for c2, p2 in PV.items()
+    #     if c2 != c1
     #     for u in p1
-    # ) +
-    return sum(sum(D_uv[u, v] for (u, v) in product(p, p)) for p in PV.values())
+    #     for v in p2
+    # )
+    temp2 = sum(
+        D_uv.get((u, v), 0) ** 2 * (1 - 1 / tau2_disagg[u, v] ** 2)
+        for p in PV.values()
+        for (u, v) in product(p, p)
+    )
+    return 1.0 * temp2
 
 
-def local_search(TN, D_uv, N, K, config):
-
-    V = set(i for i in range(N))
+def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
+    if not V_exclude:
+        V = set(i for i in range(N))
+    else:
+        V = set(i for i in range(N)) - V_exclude
     E = set((u, v) for (u, v) in TN.edges())
     # LV = set((u, v, c) for (u, v, c) in product(V, V, V))
     # EL = set((u, v, a, c) for ((u, v), a, c) in product(E, V, V))
@@ -77,7 +88,7 @@ def local_search(TN, D_uv, N, K, config):
     # Generate initial partition by BFS
     TN, bridges, border, PV, VP = BFS(TN, C_init, VP)
 
-    OBJ = get_objective(D_uv, PV)
+    OBJ = get_objective(D_uv, PV, tau2_disagg)
 
     # Conduct local search
     FIND_GRADIANT = -2
@@ -121,9 +132,10 @@ def local_search(TN, D_uv, N, K, config):
                     # if v in p:
                     # print("fisrt", VP[v] == k )
 
-                    OBJ_new = get_objective(D_uv, PV)
+                    OBJ_new = get_objective(D_uv, PV, tau2_disagg)
                     if OBJ_new < OBJ:
                         OBJ = OBJ_new
+                        print(OBJ)
                         FIND_GRADIANT = v
                         # froze = {v}
                         break
@@ -139,7 +151,7 @@ def local_search(TN, D_uv, N, K, config):
 
 
 if __name__ == "__main__":
-    import yaml
+    import yaml, time
     import pickle
     import os
     from trip_prediction import trip_prediction
@@ -194,9 +206,10 @@ if __name__ == "__main__":
         )
 
     TN, E = get_link_set_disagg(config)
-
-    PV, VP = local_search(TN, transit_trips_dict_pk, N, K, config)
-
+    tic = time.perf_counter()
+    PV, VP = local_search(TN, transit_trips_dict_pk, N, K, config, tau2_disagg)
+    toc = time.perf_counter() - tic
+    print(f"time: {toc}")
     # check if every partition forms a valid subgraph of the orginal graph
     for p, part in PV.items():
         G = TN.subgraph(part)

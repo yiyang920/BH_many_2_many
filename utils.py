@@ -52,7 +52,7 @@ def load_neighbor_disagg(config):
     return ctr
 
 
-def get_link_set_disagg(config):
+def get_link_set_disagg(config, V_exclude=None):
     """
     Generate link set of disaggregated network.
     """
@@ -69,12 +69,15 @@ def get_link_set_disagg(config):
     #     for j in ctr[i]:
     #         if i < j:
     #             G2.add_edge(i, j)
+    if V_exclude:
+        G.remove_nodes_from(V_exclude)
     L_l = set(G.edges())
 
     temp_dir = config["m2m_output_loc"] + "temp\\"
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
-    pickle.dump(G, open(temp_dir + "G_disagg.p", "wb"))
+    nx.write_gpickle(G, temp_dir + "G_disagg.p")
+    # pickle.dump(G, open(temp_dir + "G_disagg.p", "wb"))
     return G, {(i, j) for (i, j) in L_l if i != j}
 
 
