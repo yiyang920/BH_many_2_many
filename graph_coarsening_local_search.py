@@ -5,7 +5,7 @@ from random import sample
 from collections import deque
 from copy import deepcopy
 
-np.random.seed(seed=1)
+# np.random.seed(seed=1)
 
 
 def BFS(TN, C_init, VP):
@@ -71,9 +71,9 @@ def get_objective(D_uv, PV, tau2_disagg):
 
 def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
     if not V_exclude:
-        V = set(i for i in range(N))
+        V = set(TN.nodes)
     else:
-        V = set(i for i in range(N)) - V_exclude
+        V = set(TN.nodes) - V_exclude
     E = set((u, v) for (u, v) in TN.edges())
     # LV = set((u, v, c) for (u, v, c) in product(V, V, V))
     # EL = set((u, v, a, c) for ((u, v), a, c) in product(E, V, V))

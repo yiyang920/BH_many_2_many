@@ -3,19 +3,17 @@
 # Disable all the "Passing unexpected keyword argument %r in function call" in this function
 # pylint: disable=E0611, E1101, E1123, E1120
 # import glob
-import os
-from typing import Any
+import operator, pickle, os
 
 os.environ["PROJ_LIB"] = r"C:\\Users\\SQwan\\miniconda3\\Library\\share"
 
-import operator
-import pickle
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 import networkx as nx
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from collections import defaultdict
 from mpl_toolkits.basemap import Basemap
 from python_tsp.exact import solve_tsp_dynamic_programming
 from python_tsp.heuristics import solve_tsp_simulated_annealing
@@ -900,6 +898,7 @@ def update_tau_agg(ctr_agg, tau_disagg, agg_2_disagg_id, config):
 
     # calculate TSP distance for each aggregated zone
     tsp_c = dict()
+    agg_2_disagg_id = {k: list(v) for k, v in agg_2_disagg_id.items()}
     for c in ctr_agg.keys():
         p_size = len(agg_2_disagg_id[c])
         distance_matrix = np.full((p_size, p_size), float("inf"))
@@ -943,12 +942,12 @@ def update_ctr_agg(ctr_disagg, disagg_2_agg_id):
     """
     Update neighbor stations info of aggregated network
     """
-    ctr_agg = dict()
+    ctr_agg = defaultdict(set)
     for c, neighbor in ctr_disagg.items():
         c_agg = disagg_2_agg_id[c]
         for n in neighbor:
             n_agg = disagg_2_agg_id[n]
-            ctr_agg.setdefault(c_agg, set()).add(n_agg)
+            ctr_agg[c_agg].add(n_agg)
         ctr_agg[c_agg].add(c_agg)
     return {k: list(v) for k, v in ctr_agg.items()}
 
@@ -1236,7 +1235,7 @@ def plot_metric_disagg(Y, num_R, config, ITER):
     Y_rdl = pd.DataFrame(Y, columns=["r", "d", "t1", "t2", "s1", "s2", "n1", "n2"])
 
     Y_rdl.r = Y_rdl.r.astype("int64")
-    r_transfer = {}
+    r_transfer = defaultdict(set)
 
     dumm_d = (
         max(config["driver_set"]) + 1
@@ -1245,11 +1244,10 @@ def plot_metric_disagg(Y, num_R, config, ITER):
     )
     for (r, d) in zip(Y_rdl.r, Y_rdl.d):
         if d != dumm_d:
-            r_transfer.setdefault(r, set()).add(d)
+            r_transfer[r].add(d)
 
-    n_transfer = {}
+    n_transfer = defaultdict(int)
     for r, D in r_transfer.items():
-        n_transfer.setdefault(len(D) - 1, 0)
         n_transfer[len(D) - 1] += 1
 
     # calculate percentage:

@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 import networkx as nx
-import copy
+import copy, pickle
 from python_tsp.exact import solve_tsp_dynamic_programming
+from collections import defaultdict
 
 
 def direct_disagg(
@@ -88,32 +89,31 @@ def direct_disagg(
     # S_d_tilda: virtual node set for each driver {d: (s, d, t)}
     # H_d_tilda: virtual hub set for each driver {d: (s, d, t)}
     # H_d: hub set for each driver, no time info
-    S_info, Route_D_agg_2, S_d_tilda, H_d_tilda, H_d = (
-        dict(),
-        dict(),
-        dict(),
-        dict(),
-        dict(),
+    S_info, S_d_tilda, H_d_tilda, H_d = (
+        defaultdict(lambda: defaultdict(list)),
+        defaultdict(list),
+        defaultdict(list),
+        defaultdict(set),
     )
     for d, route in Route_D_agg.items():
         for i, s in enumerate(route):
             # each driver only register its first tour info
             if s[1] <= TW_d[d]:
                 # if (s[2] not in S_info) or (d not in S_info[s[2]]):
-                S_info.setdefault(s[2], dict()).setdefault(d, list()).append(s[0])
+                S_info[s[2]][d].append(s[0])
         # register destination station
-        S_info.setdefault(route[-1][3], dict()).setdefault(d, list()).append(s[1])
+        S_info[route[-1][3]][d].append(s[1])
 
     for s, d_dict in S_info.items():
         if len(d_dict) < 2:
             for d, t_list in d_dict.items():
                 for t in t_list:
-                    S_d_tilda.setdefault(d, list()).append((s, d, t))
+                    S_d_tilda[d].append((s, d, t))
         else:
             for d, t_list in d_dict.items():
                 for t in t_list:
-                    H_d_tilda.setdefault(d, list()).append((s, d, t))
-                    H_d.setdefault(d, set()).add(s)
+                    H_d_tilda[d].append((s, d, t))
+                    H_d[d].add(s)
 
     df_route_agg = pd.DataFrame()
     for d, route in Route_D_agg.items():
@@ -126,17 +126,15 @@ def direct_disagg(
     # t_d is the leaving time of each sub-node for each driver
     # t_hub = {(h, d, t_agg): t_disagg} -> h, t_agg is the aggregated hub node and arrival/departure time by
     # driver d; t_disagg is the arrival/departure time of hub (h, d, t_agg) in disaggregated solution
-    Route_D_disagg, t_d, t_hub = (dict(), dict(), dict())
+    Route_D_disagg, t_d, t_hub = defaultdict(list), defaultdict(int), dict()
 
     for index, row in df_route_agg.iterrows():
         for d in D:
-            Route_D_disagg.setdefault(d, list())
-            t_d.setdefault(d, 0)
             # if not the end of route for driver d
             if pd.notna(row[d]):
                 s_super = row[d][2]
 
-                station_list = copy.deepcopy(agg_2_disagg_id[s_super])
+                station_list = list(agg_2_disagg_id[s_super])
                 # make sure the DS_d will always be the destination node
                 if row[d][0] == TW_d[d]:
                     station_list.remove(OD_d[d]["D"])
@@ -413,10 +411,7 @@ def direct_disagg(
 
 
 if __name__ == "__main__":
-    import yaml
-    import pickle
-    import os
-    import csv
+    import yaml, os, csv
     from utils import load_tau_disagg, load_neighbor_disagg, load_FR_m2m_gc
 
     test_driver_set = {
