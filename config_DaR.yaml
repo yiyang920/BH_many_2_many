@@ -7,14 +7,14 @@ m2m_output_loc: "many2many_output\\results\\current_DaR\\" # many to many model 
 figure_pth: "many2many_output\\figure\\current_DaR\\" # figure path
 
 driver_set: # new route's driver id
-  - 1
+  # - 4
   # - 5
   # - 6
   # - 7
   # - 8
   # - 9
-  # - 0
-  # - 1
+  - 0
+  - 1
   # - 2
   # - 3
 build_on_list: # optimization based on previous optimized route

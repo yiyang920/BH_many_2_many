@@ -12,7 +12,8 @@ import numpy as np
 import pickle, csv, operator, os, yaml
 
 from st_network4 import Many2Many
-from trip_prediction2 import trip_prediction
+
+# from trip_prediction2 import trip_prediction
 from utils import (
     load_mc_input_2,
     load_neighbor_disagg,
