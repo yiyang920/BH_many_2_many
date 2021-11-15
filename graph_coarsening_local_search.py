@@ -2,8 +2,9 @@ import networkx as nx
 import numpy as np
 from itertools import product
 from random import sample
-from collections import deque
-from copy import deepcopy
+
+# from collections import deque
+# from copy import deepcopy
 
 # np.random.seed(seed=1)
 

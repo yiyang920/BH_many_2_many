@@ -60,6 +60,9 @@ _, _ = get_link_set_disagg(config)
 # Load existing bus routes
 FR_origin, V_bus = load_scen_FR(config)
 
+Route_D = pickle.load(open(r"Data\temp\Route_D.p", "rb"))
+V_bus = V_bus | set(s1 for route in Route_D.values() for _, _, s1, *_ in route)
+
 # Load neighbor nodes information of disaggregated zones
 ctr_disagg = load_neighbor_disagg(config)
 # Load shortest travel time matrices of disaggregated zones
@@ -132,14 +135,14 @@ else:
 print("trip generation finished, entering optimization model...")
 
 # get residual graph and edge set
-TN, E = get_link_set_disagg(config, V_exclude=V_bus)
+TN, _ = get_link_set_disagg(config, V_exclude=V_bus)
 PV, VP = dict(), dict()
 for comp in nx.connected_components(TN.to_undirected()):
     num_partition = len(PV)
     if len(comp) > config["K"]:
         K = math.floor(config["K"] / config["S_disagg"] * len(comp))
         TN_sub = TN.subgraph(comp).copy()
-        PV_sub, VP_sub = local_search(TN_sub, ttrips_mat, N, K, config, tau2_disagg)
+        PV_sub, _ = local_search(TN_sub, ttrips_mat, N, K, config, tau2_disagg)
         PV.update({k + num_partition: v for k, v in PV_sub.items()})
     else:
         PV.update({num_partition: set(comp)})
@@ -190,6 +193,7 @@ MR_list, R_list, OBJ_set_m2m_gc, OBJ_set_mc_m2m = list(), list(), list(), list()
 OBJ = float("infinity")
 
 ITER_LIMIT_M2M_GC = config["ITER_LIMIT_M2M_GC"]
+config["ITR_MC_M2M"] = 0
 while ITER_LIMIT_M2M_GC:
     print(
         "entering m2m-gc iterations {}, number of aggregated zones {}...".format(
@@ -198,6 +202,8 @@ while ITER_LIMIT_M2M_GC:
         )
     )
     config["ITR_M2M_GC"] = config["ITER_LIMIT_M2M_GC"] - ITER_LIMIT_M2M_GC
+    # plot current network
+    network_plot(tau, ctr, disagg_2_agg_id, config)
     # Run many-to-many model
     if not config["DEBUG_MODE"]:
         (X, U, Y, Route_D, mr, OBJ, R_match) = Many2Many(
@@ -229,6 +235,8 @@ while ITER_LIMIT_M2M_GC:
 
     if OBJ in OBJ_set_m2m_gc:
         OBJ_set_m2m_gc.append(OBJ)
+        MR_list.append(mr)
+        R_list.append(len(R_match))
         break
     OBJ_set_m2m_gc.append(OBJ)
     # record matching rate, number of matches, and objective value
@@ -251,14 +259,14 @@ while ITER_LIMIT_M2M_GC:
 
     # get residual graph and edge set
     V_bus = set(s1 for route in Route_D_disagg.values() for _, _, s1, *_ in route)
-    TN, E = get_link_set_disagg(config, V_exclude=V_bus)
+    TN, _ = get_link_set_disagg(config, V_exclude=V_bus)
     PV, VP = dict(), dict()
     for comp in nx.connected_components(TN.to_undirected()):
         num_partition = len(PV)
         if len(comp) > config["K"]:
             K = math.floor(config["K"] / config["S_disagg"] * len(comp))
             TN_sub = TN.subgraph(comp).copy()
-            PV_sub, VP_sub = local_search(TN_sub, ttrips_mat, N, K, config, tau2_disagg)
+            PV_sub, _ = local_search(TN_sub, ttrips_mat, N, K, config, tau2_disagg)
             PV.update({k + num_partition: v for k, v in PV_sub.items()})
         else:
             PV.update({num_partition: set(comp)})
