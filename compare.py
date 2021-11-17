@@ -53,3 +53,48 @@ print("average ATT-SPTT ratio constrained 1: {}".format(np.mean(ratio_list_const
 print("average ATT-SPTT ratio constrained 2: {}".format(np.mean(ratio_list_const2)))
 print("average ATT-SPTT ratio expansion 1: {}".format(np.mean(ratio_list_exp1)))
 print("average ATT-SPTT ratio expansion 2: {}".format(np.mean(ratio_list_exp2)))
+
+factor = 180 // 60
+ratio_list_current_DaR = (
+    pickle.load(open(result_loc + "current_Dar_40//ratio_list_0.p", "rb")) * factor
+)
+ratio_list_const1_DaR = (
+    pickle.load(open(result_loc + "contrained_1_Dar_40//ratio_list_0.p", "rb")) * factor
+)
+ratio_list_const2_DaR = (
+    pickle.load(open(result_loc + "contrained_2_Dar_40//ratio_list_0.p", "rb")) * factor
+)
+ratio_list_exp1_DaR = (
+    pickle.load(open(result_loc + "expansion_1_double_Dar_40//ratio_list_0.p", "rb"))
+    * factor
+)
+ratio_list_exp2_DaR = (
+    pickle.load(open(result_loc + "expansion_2_double_Dar_40//ratio_list_0.p", "rb"))
+    * factor
+)
+
+print(
+    "average ATT-SPTT ratio current DaR: {}".format(
+        np.mean(ratio_list_current + ratio_list_current_DaR)
+    )
+)
+print(
+    "average ATT-SPTT ratio constrained 1 DaR: {}".format(
+        np.mean(ratio_list_const1 + ratio_list_const1_DaR)
+    )
+)
+print(
+    "average ATT-SPTT ratio constrained 2 DaR: {}".format(
+        np.mean(ratio_list_const2 + ratio_list_const2_DaR)
+    )
+)
+print(
+    "average ATT-SPTT ratio expansion 1 DaR: {}".format(
+        np.mean(ratio_list_exp1 + ratio_list_exp1_DaR)
+    )
+)
+print(
+    "average ATT-SPTT ratio expansion 2 DaR: {}".format(
+        np.mean(ratio_list_exp2 + ratio_list_exp2_DaR)
+    )
+)
