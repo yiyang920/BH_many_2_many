@@ -305,6 +305,55 @@ def get_rider(trip_dict, config):
     return Rider.to_numpy(dtype=int, na_value=999)
 
 
+def get_rider_agg_diagg(
+    trip_dict, config, tau_disagg, disagg_2_agg_id=None, fraction=0.6
+):
+    """
+    Convert disaggregated trips into aggregated trips
+    Rider info: Rounding trip number with threshold 0.5
+    Multiply 0.6 (default) representing morning peak hour 7-10 am
+    Generate rider information as a numpy array
+    """
+    # agg_2_disagg_id = pickle.load(open(config["agg_2_disagg_id"], "rb"))
+    if disagg_2_agg_id is None:
+        disagg_2_agg_id = pickle.load(open(config["disagg_2_agg_id"], "rb"))
+
+    trip_dict = {
+        (o, d): np.rint(fraction * trips).astype(int)
+        for (o, d), trips in trip_dict.items()
+        if np.rint(fraction * trips) > 0
+        if o != d
+    }
+    N_r = sum(trip_dict.values())
+    O_r, D_r = [], []
+    for k, v in trip_dict.items():
+        O_r += [k[0] for _ in range(v)]
+        D_r += [k[1] for _ in range(v)]
+
+    Rider = np.zeros((N_r, 8))
+    # Rider IDs
+    Rider[:, 0] = np.arange(N_r)
+    # Rider SPTT in disaggregated network
+    Rider[:, 7] = np.array([tau_disagg[o, d] for o, d in zip(O_r, D_r)])
+    # Rider origin and destination in aggregated network
+    Rider[:, 4:6] = np.array(
+        [[disagg_2_agg_id[o], disagg_2_agg_id[d]] for o, d in zip(O_r, D_r)]
+    )
+    # Rider earliest departure and latest arrival time
+    Rider[:, 2], Rider[:, 3] = 0, config["T"] - 1
+    # Rider maximum allowed transfers
+    Rider[:, 6] = 10
+    np.savetxt(
+        config["m2m_data_loc"] + r"Rider_agg.csv",
+        Rider,
+        header="ID,NAN,ED,LA,O,D,SL,SPTT",
+        comments="",
+        delimiter=",",
+        fmt="%d",
+    )
+    return Rider.astype(int)
+
+
 def disagg_trip_get_rider(
     transit_trips_dict, config, tau_disagg, disagg_2_agg_id=None, fraction=0.6
 ):

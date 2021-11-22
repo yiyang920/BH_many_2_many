@@ -2,7 +2,7 @@ import csv, pickle, operator, os, yaml, math
 import pandas as pd
 import numpy as np
 import networkx as nx
-from st_network3 import Many2Many
+from st_network3_1 import Many2Many
 from collections import defaultdict
 from trip_prediction import trip_prediction
 from graph_coarsening_local_search import local_search
@@ -13,6 +13,7 @@ from utils import (
     get_driver_disagg,
     get_driver_m2m_gc,
     get_rider,
+    get_rider_agg_diagg,
     load_FR_m2m_gc,
     load_mc_input_2,
     # load_neighbor,
@@ -171,10 +172,13 @@ pickle.dump(agg_2_disagg_id, open(file_dir + "agg_2_disagg_id.p", "wb"))
 pickle.dump(disagg_2_agg_id, open(file_dir + "disagg_2_agg_id.p", "wb"))
 
 # Load Rider
-trip_dict = disagg_2_agg_trip(
-    ttrips_mat, config, disagg_2_agg_id=disagg_2_agg_id, fraction=3.0 / 24
+Rider = get_rider_agg_diagg(
+    ttrips_mat,
+    config,
+    tau_disagg,
+    disagg_2_agg_id=disagg_2_agg_id,
+    fraction=3.0 / 24,
 )
-Rider = get_rider(trip_dict, config)
 # Load Driver
 Driver = get_driver_m2m_gc(disagg_2_agg_id, config)
 FR = {
@@ -291,10 +295,13 @@ while ITER_LIMIT_M2M_GC:
     pickle.dump(disagg_2_agg_id, open(file_dir + "disagg_2_agg_id.p", "wb"))
 
     # Load Rider
-    trip_dict = disagg_2_agg_trip(
-        ttrips_mat, config, disagg_2_agg_id=disagg_2_agg_id, fraction=3.0 / 24
+    Rider = get_rider_agg_diagg(
+        ttrips_mat,
+        config,
+        tau_disagg,
+        disagg_2_agg_id=disagg_2_agg_id,
+        fraction=3.0 / 24,
     )
-    Rider = get_rider(trip_dict, config)
     # Load Driver
     Driver = get_driver_m2m_gc(disagg_2_agg_id, config)
     FR = {
