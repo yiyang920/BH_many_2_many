@@ -34,7 +34,7 @@ USE_GMAPS_API = False
 # %% Generate mode choice data using Google Maps API
 if USE_GMAPS_API:
     # your google map API key
-    gmap_key = "AIzaSyCAMHXBSQrYIppBxu_GAKCMhR4rYSPuB8k"
+    gmap_key = ""
     # travel time and distance by walk
     station = pickle.load(open(r"Data\temp\Station.p", "rb"))
     num_station = len(station)
