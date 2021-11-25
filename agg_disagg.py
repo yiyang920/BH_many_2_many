@@ -59,10 +59,22 @@ print("Initializing aggregated network...")
 # Generate link set of the disaggregated zones
 _, _ = get_link_set_disagg(config)
 # Load existing bus routes
-FR_origin, V_bus = load_scen_FR(config)
+if config["FIXED_ROUTE"]:
+    FR_origin, V_bus = load_scen_FR(config)
+else:
+    FR_origin, V_bus = dict(), set()
+
+# Diver origin and destination data in disaggregated network
+OD_d = pd.read_csv(
+    config["m2m_data_loc"] + "Driver_OD_disagg.csv", index_col=["ID"]
+).to_dict("index")
+V_bus.update(
+    set(OD_dict["O"] for OD_dict in OD_d.values())
+    | set(OD_dict["D"] for OD_dict in OD_d.values())
+)
 
 Route_D = pickle.load(open(r"Data\temp\Route_D.p", "rb"))
-V_bus = V_bus | set(s1 for route in Route_D.values() for _, _, s1, *_ in route)
+V_bus.update(set(s1 for route in Route_D.values() for _, _, s1, *_ in route))
 
 # Load neighbor nodes information of disaggregated zones
 ctr_disagg = load_neighbor_disagg(config)
@@ -93,12 +105,12 @@ tau_disagg, tau2_disagg = load_tau_disagg(config)
 
 if not config["DEMAND_MODEL"]:
     try:
-        ttrips_mat = pickle.load(
+        ttrips_dict = pickle.load(
             open(config["m2m_data_loc"] + "ttrips_mat.p", "rb"),
         )
     except:
         print("transit trip table not found, running travel demand model...")
-        ttrips_mat = trip_prediction(
+        ttrips_dict = trip_prediction(
             id_converter,
             mdot_dat,
             stop_zones,
@@ -116,7 +128,7 @@ if not config["DEMAND_MODEL"]:
             gm_wkTT,
         )
 else:
-    ttrips_mat = trip_prediction(
+    ttrips_dict = trip_prediction(
         id_converter,
         mdot_dat,
         stop_zones,
@@ -143,7 +155,7 @@ for comp in nx.connected_components(TN.to_undirected()):
     if len(comp) > config["K"]:
         K = math.floor(config["K"] / config["S_disagg"] * len(comp))
         TN_sub = TN.subgraph(comp).copy()
-        PV_sub, _ = local_search(TN_sub, ttrips_mat, N, K, config, tau2_disagg)
+        PV_sub, _ = local_search(TN_sub, ttrips_dict, N, K, config, tau2_disagg)
         PV.update({k + num_partition: v for k, v in PV_sub.items()})
     else:
         PV.update({num_partition: set(comp)})
@@ -173,7 +185,7 @@ pickle.dump(disagg_2_agg_id, open(file_dir + "disagg_2_agg_id.p", "wb"))
 
 # Load Rider
 Rider = get_rider_agg_diagg(
-    ttrips_mat,
+    ttrips_dict,
     config,
     tau_disagg,
     disagg_2_agg_id=disagg_2_agg_id,
@@ -188,10 +200,6 @@ FR = {
     ]
     for d, route in FR_origin.items()
 }
-# Diver origin and destination data in disaggregated network
-OD_d = pd.read_csv(
-    config["m2m_data_loc"] + "Driver_OD_disagg.csv", index_col=["ID"]
-).to_dict("index")
 
 MR_list, R_list, OBJ_set_m2m_gc, OBJ_set_mc_m2m = list(), list(), list(), list()
 OBJ = float("infinity")
@@ -207,7 +215,7 @@ while ITER_LIMIT_M2M_GC:
     )
     config["ITR_M2M_GC"] = config["ITER_LIMIT_M2M_GC"] - ITER_LIMIT_M2M_GC
     # plot current network
-    network_plot(tau, ctr, disagg_2_agg_id, config)
+    # network_plot(tau, ctr, disagg_2_agg_id, config)
     # Run many-to-many model
     if not config["DEBUG_MODE"]:
         (X, U, Y, Route_D, mr, OBJ, R_match) = Many2Many(
@@ -237,6 +245,16 @@ while ITER_LIMIT_M2M_GC:
         OBJ = pickle.load(open(r"Data\temp\OBJ.p", "rb"))
         R_match = pickle.load(open(r"Data\temp\R_match.p", "rb"))
 
+    pickle.dump(
+        agg_2_disagg_id,
+        open(
+            config["m2m_output_loc"]
+            + "agg_2_disagg_id_{}.p".format(
+                config["ITER_LIMIT_M2M_GC"] + 1 - ITER_LIMIT_M2M_GC
+            ),
+            "wb",
+        ),
+    )
     if OBJ in OBJ_set_m2m_gc:
         OBJ_set_m2m_gc.append(OBJ)
         MR_list.append(mr)
@@ -265,15 +283,15 @@ while ITER_LIMIT_M2M_GC:
     V_bus = set(s1 for route in Route_D_disagg.values() for _, _, s1, *_ in route)
     TN, _ = get_link_set_disagg(config, V_exclude=V_bus)
     PV, VP = dict(), dict()
-    for comp in nx.connected_components(TN.to_undirected()):
-        num_partition = len(PV)
-        if len(comp) > config["K"]:
-            K = math.floor(config["K"] / config["S_disagg"] * len(comp))
-            TN_sub = TN.subgraph(comp).copy()
-            PV_sub, _ = local_search(TN_sub, ttrips_mat, N, K, config, tau2_disagg)
-            PV.update({k + num_partition: v for k, v in PV_sub.items()})
-        else:
-            PV.update({num_partition: set(comp)})
+    # for comp in nx.connected_components(TN.to_undirected()):
+    #     num_partition = len(PV)
+    #     if len(comp) > config["K"]:
+    #         K = math.floor(config["K"] / config["S_disagg"] * len(comp))
+    #         TN_sub = TN.subgraph(comp).copy()
+    #         PV_sub, _ = local_search(TN_sub, ttrips_dict, N, K, config, tau2_disagg)
+    #         PV.update({k + num_partition: v for k, v in PV_sub.items()})
+    #     else:
+    #         PV.update({num_partition: set(comp)})
     num_partition = len(PV)
     PV.update({num_partition + i: {v} for i, v in enumerate(V_bus)})
     VP = {v: c for c, p in PV.items() for v in p}
@@ -296,7 +314,7 @@ while ITER_LIMIT_M2M_GC:
 
     # Load Rider
     Rider = get_rider_agg_diagg(
-        ttrips_mat,
+        ttrips_dict,
         config,
         tau_disagg,
         disagg_2_agg_id=disagg_2_agg_id,
@@ -317,7 +335,7 @@ while ITER_LIMIT_M2M_GC:
 plot_mr(MR_list, config)
 plot_r(R_list, config)
 # plot travel demand
-travel_demand_plot(trip_dict, config)
+travel_demand_plot(ttrips_dict, config)
 # plot routes
 route_plot(Route_D_disagg, config)
 # %% Store results
@@ -389,7 +407,7 @@ R_match_filename = result_loc + r"R_matc_agg.csv"
 R_match.to_csv(R_match_filename, index=False)
 
 pickle.dump(
-    trip_dict,
+    ttrips_dict,
     open(config["m2m_data_loc"] + "trip_dict.p", "wb"),
 )
 

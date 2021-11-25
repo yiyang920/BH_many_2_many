@@ -45,7 +45,7 @@ FR_list: # csv file of all fixed routes in the scenario
 BUILD_ON: False # optimization based on previous optimized route
 FIXED_ROUTE: True # combined with existing fixed routes
 REPEATED_TOUR: True # true if optimize bus tour, otherwise flex route
-PENALIZE_RATIO: True # penalize ATT-SPTT ratio in objective
+PENALIZE_RATIO: False # penalize ATT-SPTT ratio in objective
 DEMAND_MODEL: False # true if run travel demand model
 
 # Many-to-many model parameters
@@ -59,7 +59,7 @@ VEH_CAP: 16 # vehicle capacity
 LAMBDA: 0.33 # penalization coefficient for ATT-SPTT ratio term
 
 # Gurobi parameters
-TIME_LIMIT: 1000
+TIME_LIMIT: .inf
 MIP_GAP: 1.0e-4
 
 

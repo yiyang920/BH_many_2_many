@@ -322,7 +322,9 @@ def get_rider_agg_diagg(
         (o, d): np.rint(fraction * trips).astype(int)
         for (o, d), trips in trip_dict.items()
         if np.rint(fraction * trips) > 0
-        if o != d
+        and o != d
+        and o in disagg_2_agg_id
+        and d in disagg_2_agg_id
     }
     N_r = sum(trip_dict.values())
     O_r, D_r = [], []
@@ -992,12 +994,19 @@ def update_ctr_agg(ctr_disagg, disagg_2_agg_id):
     Update neighbor stations info of aggregated network
     """
     ctr_agg = defaultdict(set)
-    for c, neighbor in ctr_disagg.items():
-        c_agg = disagg_2_agg_id[c]
+    for c, c_agg in disagg_2_agg_id.items():
+        neighbor = ctr_disagg[c]
         for n in neighbor:
-            n_agg = disagg_2_agg_id[n]
-            ctr_agg[c_agg].add(n_agg)
+            if n in disagg_2_agg_id:
+                n_agg = disagg_2_agg_id[n]
+                ctr_agg[c_agg].add(n_agg)
         ctr_agg[c_agg].add(c_agg)
+    # for c, neighbor in ctr_disagg.items():
+    #     c_agg = disagg_2_agg_id[c]
+    #     for n in neighbor:
+    #         n_agg = disagg_2_agg_id[n]
+    #         ctr_agg[c_agg].add(n_agg)
+    #     ctr_agg[c_agg].add(c_agg)
     return {k: list(v) for k, v in ctr_agg.items()}
 
 

@@ -6,7 +6,7 @@ from random import sample
 # from collections import deque
 # from copy import deepcopy
 
-# np.random.seed(seed=1)
+# np.random.seed(seed=100)
 
 
 def BFS(TN, C_init, VP):
