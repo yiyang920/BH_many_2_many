@@ -950,19 +950,21 @@ def update_tau_agg(ctr_agg, tau_disagg, agg_2_disagg_id, config):
     # calculate TSP distance for each aggregated zone
     tsp_c = dict()
     agg_2_disagg_id = {k: list(v) for k, v in agg_2_disagg_id.items()}
-    for c in ctr_agg.keys():
-        p_size = len(agg_2_disagg_id[c])
+    for c, v_list in ctr_agg.items():
+        p_size = len(v_list)
         distance_matrix = np.full((p_size, p_size), float("inf"))
-        for i in range(p_size):
-            for j in range(p_size):
-                distance_matrix[i, j] = tau_disagg[
-                    agg_2_disagg_id[c][i], agg_2_disagg_id[c][j]
-                ]
-        try:
-            _, tsp_c[c] = solve_tsp_simulated_annealing(distance_matrix)
-        except:
-            _, tsp_c[c] = solve_tsp_dynamic_programming(distance_matrix)
-
+        if p_size > 1:
+            for i in range(p_size):
+                for j in range(p_size):
+                    distance_matrix[i, j] = tau_disagg[
+                        agg_2_disagg_id[c][i], agg_2_disagg_id[c][j]
+                    ]
+            try:
+                _, tsp_c[c] = solve_tsp_simulated_annealing(distance_matrix)
+            except:
+                _, tsp_c[c] = solve_tsp_dynamic_programming(distance_matrix)
+        else:
+            tsp_c[c] = 0
     G = nx.Graph()
     for i in range(len(ctr_agg)):
         for j in ctr_agg[i]:
