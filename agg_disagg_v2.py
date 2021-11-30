@@ -211,6 +211,7 @@ OBJ = float("infinity")
 
 ITER_LIMIT_M2M_GC = config["ITER_LIMIT_M2M_GC"]
 config["ITR_MC_M2M"] = 0
+x_init, y_init, u_init, z_init = None, None, None, None
 while ITER_LIMIT_M2M_GC:
     print(
         "entering m2m-gc iterations {}, number of aggregated zones {}...".format(
@@ -218,13 +219,21 @@ while ITER_LIMIT_M2M_GC:
             len(agg_2_disagg_id),
         )
     )
+    print("number of riders: {}".format(len(Rider)))
     config["ITR_M2M_GC"] = config["ITER_LIMIT_M2M_GC"] - ITER_LIMIT_M2M_GC
     # plot current network
-    # network_plot(tau, ctr, disagg_2_agg_id, config)
+    network_plot(tau, ctr, disagg_2_agg_id, config)
     # Run many-to-many model
     if not config["DEBUG_MODE"]:
         (X, U, Y, Route_D, mr, OBJ, R_match) = Many2Many(
-            Rider, Driver, tau, tau2, ctr, config, fixed_route_D=FR
+            Rider,
+            Driver,
+            tau,
+            tau2,
+            ctr,
+            config,
+            fixed_route_D=FR,
+            start=(x_init, y_init, u_init, z_init),
         )
         print("optimization finished, matching rate: {}%".format(mr * 100))
 
@@ -239,6 +248,24 @@ while ITER_LIMIT_M2M_GC:
 
         pickle.dump(Driver, open(r"Data\temp\Driver.p", "wb"))
         pickle.dump(tau, open(r"Data\temp\tau_agg.p", "wb"))
+        pickle.dump(
+            agg_2_disagg_id,
+            open(
+                r"Data\temp\agg_2_disagg_id_{}.p".format(
+                    config["ITER_LIMIT_M2M_GC"] + 1 - ITER_LIMIT_M2M_GC
+                ),
+                "wb",
+            ),
+        )
+        pickle.dump(
+            disagg_2_agg_id,
+            open(
+                r"Data\temp\disagg_2_agg_id_{}.p".format(
+                    config["ITER_LIMIT_M2M_GC"] + 1 - ITER_LIMIT_M2M_GC
+                ),
+                "wb",
+            ),
+        )
 
     else:
         # load existing results for debugging
@@ -250,6 +277,25 @@ while ITER_LIMIT_M2M_GC:
         OBJ = pickle.load(open(r"Data\temp\OBJ.p", "rb"))
         R_match = pickle.load(open(r"Data\temp\R_match.p", "rb"))
 
+        Driver = pickle.load(open(r"Data\temp\Driver.p", "rb"))
+        tau = pickle.load(open(r"Data\temp\tau_agg.p", "rb"))
+        agg_2_disagg_id = pickle.load(
+            open(
+                r"Data\temp\agg_2_disagg_id_{}.p".format(
+                    config["ITER_LIMIT_M2M_GC"] + 1 - ITER_LIMIT_M2M_GC
+                ),
+                "rb",
+            ),
+        )
+        disagg_2_agg_id = pickle.load(
+            open(
+                r"Data\temp\disagg_2_agg_id_{}.p".format(
+                    config["ITER_LIMIT_M2M_GC"] + 1 - ITER_LIMIT_M2M_GC
+                ),
+                "rb",
+            ),
+        )
+
     pickle.dump(
         agg_2_disagg_id,
         open(
@@ -260,7 +306,7 @@ while ITER_LIMIT_M2M_GC:
             "wb",
         ),
     )
-    if OBJ in OBJ_set_m2m_gc:
+    if OBJ in OBJ_set_m2m_gc and not config["DEBUG_MODE"]:
         OBJ_set_m2m_gc.append(OBJ)
         MR_list.append(mr)
         R_list.append(len(R_match))
@@ -270,8 +316,9 @@ while ITER_LIMIT_M2M_GC:
     MR_list.append(mr)
     R_list.append(len(R_match))
     # node set with bus service in of disaggregated network
-    V_bus_agg = set(s1 for route in Route_D.values() for _, _, s1, *_, in route) | set(
-        s2 for route in Route_D.values() for _, _, _, s2, *_, in route
+    V_bus_agg = list(
+        set(s1 for route in Route_D.values() for _, _, s1, *_, in route)
+        | set(s2 for route in Route_D.values() for _, _, _, s2, *_, in route)
     )
     V_bus = set()
     for v in V_bus_agg:
@@ -289,11 +336,14 @@ while ITER_LIMIT_M2M_GC:
         else:
             PV.update({num_partition: set(comp)})
     num_partition = len(PV)
-    PV.update({num_partition + i: {v} for i, v in enumerate(V_bus)})
+
+    p_old_2_p_new = {p: num_partition + i for i, p in enumerate(V_bus_agg)}
+    PV.update({num_partition + i: agg_2_disagg_id[p] for i, p in enumerate(V_bus_agg)})
     VP = {v: c for c, p in PV.items() for v in p}
     # Update agg_2_disagg_id and disagg_2_agg_id
     agg_2_disagg_id, disagg_2_agg_id = PV, VP
     # Update config dictionary: number of partitions of aggregated network
+    S_old = config["S"]
     config["S"] = len(agg_2_disagg_id)
 
     ctr = update_ctr_agg(ctr_disagg, disagg_2_agg_id)
@@ -308,19 +358,60 @@ while ITER_LIMIT_M2M_GC:
     pickle.dump(agg_2_disagg_id, open(file_dir + "agg_2_disagg_id.p", "wb"))
     pickle.dump(disagg_2_agg_id, open(file_dir + "disagg_2_agg_id.p", "wb"))
 
-    disagg_2_agg_id_residual = {v: p for v, p in disagg_2_agg_id if v not in V_bus}
-    # Update Rider
-    Rider_matched = np.array([row for row in Rider if row[0] in set(R_match)])
-    Rider_matched[:, 0] = np.arange(len(Rider_matched))
-    Rider = get_rider_agg_diagg(
-        ttrips_dict,
-        config,
-        tau_disagg,
-        disagg_2_agg_id=disagg_2_agg_id_residual,
-        fraction=3.0 / 24,
-    )
-    Rider[:, 0] = Rider[:, 0] + len(Rider_matched)
-    Rider = np.concatenate((Rider_matched, Rider), axis=0)
+    if config["DEBUG_MODE"]:
+        Rider = get_rider_agg_diagg(
+            ttrips_dict,
+            config,
+            tau_disagg,
+            disagg_2_agg_id=disagg_2_agg_id,
+            fraction=3.0 / 24,
+        )
+    else:
+        disagg_2_agg_id_residual = {
+            v: p for v, p in disagg_2_agg_id.items() if v not in V_bus
+        }
+        # Update Rider
+        Rider_matched = np.array([row for row in Rider if row[0] in set(R_match)])
+        r_old_2_r_new = {r: i for i, r in enumerate(Rider_matched[:, 0])}
+        Rider_matched[:, 0] = np.arange(len(Rider_matched))
+
+        # convert the old agg nodes to the new agg nodes
+        x_init = {
+            (
+                d,
+                t1 * config["S"] + p_old_2_p_new[s1],
+                t2 * config["S"] + p_old_2_p_new[s2],
+            )
+            for d, route in Route_D.items()
+            for (t1, t2, s1, s2, *_) in route
+        }
+        y_init = set()
+        for r, d, n1, n2 in Y:
+            t1, t2, s1, s2 = (
+                n1 // S_old,
+                n2 // S_old,
+                p_old_2_p_new[n1 % S_old],
+                p_old_2_p_new[n2 % S_old],
+            )
+            y_init.add((r, d, t1 * config["S"] + s1, t2 * config["S"] + s2))
+        z_init = {r_old_2_r_new[r] for r in R_match}
+        u_init = {(r_old_2_r_new[r], d) for r, d in U}
+
+        p_old_2_p_new_func = np.vectorize(lambda x: p_old_2_p_new[x])
+        Rider_matched[:, 4], Rider_matched[:, 5] = (
+            p_old_2_p_new_func(Rider_matched[:, 4]),
+            p_old_2_p_new_func(Rider_matched[:, 5]),
+        )
+        Rider = get_rider_agg_diagg(
+            ttrips_dict,
+            config,
+            tau_disagg,
+            disagg_2_agg_id=disagg_2_agg_id_residual,
+            fraction=3.0 / 24,
+        )
+        Rider[:, 0] = Rider[:, 0] + len(Rider_matched)
+        Rider = np.concatenate((Rider_matched, Rider), axis=0)
+
     # Load Driver
     Driver = get_driver_m2m_gc(disagg_2_agg_id, config)
     FR = {
@@ -332,6 +423,20 @@ while ITER_LIMIT_M2M_GC:
     }
     ITER_LIMIT_M2M_GC -= 1
 
+# Post-processing: disaggregate Route_D
+Route_D_disagg = direct_disagg(
+    Route_D,
+    OD_d,
+    Driver,
+    tau_disagg,
+    ctr_disagg,
+    agg_2_disagg_id,
+    disagg_2_agg_id,
+    config,
+)
+if config["FIXED_ROUTE"]:
+    # Update route with the fixed route schedule
+    Route_D_disagg.update(FR_origin)
 # plot matching rate curve and number of matched riders curve
 plot_mr(MR_list, config)
 plot_r(R_list, config)

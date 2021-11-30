@@ -11,14 +11,14 @@ G_t: Data\temp\G_t.p
 G_t_agg: Data\temp\G_t_agg.p
 ITER_LIMIT_M2M_GC: 3
 ITER_LIMIT_MC_M2M: 1
-ITR_M2M_GC: 2
+ITR_M2M_GC: 1
 ITR_MC_M2M: 0
 K: 25
 LAMBDA: 0.33
 MIP_GAP: 0.0001
 PENALIZE_RATIO: false
 REPEATED_TOUR: true
-S: 8
+S: 30
 S_disagg: 69
 Station: Data\temp\Station.p
 Station_agg: Data\temp\Station_agg.p

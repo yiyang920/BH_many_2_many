@@ -327,6 +327,7 @@ def get_rider_agg_diagg(
         and d in disagg_2_agg_id
     }
     N_r = sum(trip_dict.values())
+    # print("number of riders: {}".format(N_r))
     O_r, D_r = [], []
     for k, v in trip_dict.items():
         O_r += [k[0] for _ in range(v)]
@@ -950,10 +951,10 @@ def update_tau_agg(ctr_agg, tau_disagg, agg_2_disagg_id, config):
     # calculate TSP distance for each aggregated zone
     tsp_c = dict()
     agg_2_disagg_id = {k: list(v) for k, v in agg_2_disagg_id.items()}
-    for c, v_list in ctr_agg.items():
-        p_size = len(v_list)
-        distance_matrix = np.full((p_size, p_size), float("inf"))
+    for c in ctr_agg:
+        p_size = len(agg_2_disagg_id[c])
         if p_size > 1:
+            distance_matrix = np.full((p_size, p_size), float("inf"))
             for i in range(p_size):
                 for j in range(p_size):
                     distance_matrix[i, j] = tau_disagg[
@@ -1647,7 +1648,7 @@ def route_plot(Route_D, config):
     s_list = {
         d: [
             (lons_dict[n1], lats_dict[n1])
-            for (_, t2, n1, _, _, _) in route
+            for (_, t2, n1, *_) in route
             if t2 <= duration_d[d]
         ]
         for d, route in Route_D.items()

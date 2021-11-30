@@ -14,7 +14,7 @@ import gurobipy as gp
 from gurobipy import GRB
 
 
-def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None):
+def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=None):
     """
     Ver 3.1:
     When penalize ATT-SPTT ratio the SPTT is the shortest path travel time in the disaggregated network.
@@ -511,6 +511,29 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None):
         #         x[d, n1, n2].ub = 0
         m.update()
 
+    if start and all(e for e in start):
+        x_init, y_init, u_init, z_init = start
+        for e in DL_d:
+            x[e].start = 0
+        for e in x_init:
+            x[e].start = 1
+
+        for e in RDL_rd:
+            y[e].start = 0
+        for e in y_init:
+            y[e].start = 1
+
+        for e in RD:
+            u[e].start = 0
+        for e in u_init:
+            u[e].start = 1
+
+        for e in R:
+            z[e].start = 0
+        for e in z_init:
+            z[e].start = 1
+
+                
     ### Objective ###
     if not PENALIZE_RATIO:
         m.setObjective(

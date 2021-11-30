@@ -279,8 +279,14 @@ while ITER_LIMIT_M2M_GC:
         # Update route with the fixed route schedule
         Route_D_disagg.update(FR_origin)
 
-    # get residual graph and edge set
-    V_bus = set(s1 for route in Route_D_disagg.values() for _, _, s1, *_ in route)
+    # node set with bus service in of disaggregated network
+    V_bus_agg = set(s1 for route in Route_D.values() for _, _, s1, *_, in route) | set(
+        s2 for route in Route_D.values() for _, _, _, s2, *_, in route
+    )
+    V_bus = set()
+    for v in V_bus_agg:
+        V_bus.update(set(agg_2_disagg_id[v]))
+    # V_bus = set(s1 for route in Route_D_disagg.values() for _, _, s1, *_ in route)
     TN, _ = get_link_set_disagg(config, V_exclude=V_bus)
     PV, VP = dict(), dict()
     # for comp in nx.connected_components(TN.to_undirected()):
