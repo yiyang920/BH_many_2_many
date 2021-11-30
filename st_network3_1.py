@@ -533,7 +533,6 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
         for e in z_init:
             z[e].start = 1
 
-                
     ### Objective ###
     if not PENALIZE_RATIO:
         m.setObjective(

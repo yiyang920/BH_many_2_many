@@ -51,7 +51,7 @@ DEMAND_MODEL: False # true if run travel demand model
 # Many-to-many model parameters
 S: 69 # number of aggregated zones
 S_disagg: 69 # number of disaggregated zones
-K: 25 # number of partitions
+K: 15 # number of partitions
 T: 125 # time horizon
 DELTA_t: 1 # discrete time interval in minutes
 beta: 0 # x DELTA_t (mins) time flexibility budget

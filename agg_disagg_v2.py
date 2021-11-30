@@ -393,7 +393,9 @@ while ITER_LIMIT_M2M_GC:
                 p_old_2_p_new[n1 % S_old],
                 p_old_2_p_new[n2 % S_old],
             )
-            y_init.add((r, d, t1 * config["S"] + s1, t2 * config["S"] + s2))
+            y_init.add(
+                (r_old_2_r_new[r], d, t1 * config["S"] + s1, t2 * config["S"] + s2)
+            )
         z_init = {r_old_2_r_new[r] for r in R_match}
         u_init = {(r_old_2_r_new[r], d) for r, d in U}
 
