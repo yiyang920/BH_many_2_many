@@ -3,7 +3,7 @@ V2:
 Instead disaggregating routes right after the optimization problem, only
 disaggregate routes after finishing all iterations.
 """
-import csv, pickle, operator, os, yaml, math
+import csv, pickle, operator, os, yaml, math, time
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -189,12 +189,17 @@ pickle.dump(agg_2_disagg_id, open(file_dir + "agg_2_disagg_id.p", "wb"))
 pickle.dump(disagg_2_agg_id, open(file_dir + "disagg_2_agg_id.p", "wb"))
 
 # Load Rider
-Rider = get_rider_agg_diagg(
+Rider_disagg = get_rider_agg_diagg(
     ttrips_dict,
     config,
     tau_disagg,
-    disagg_2_agg_id=disagg_2_agg_id,
+    disagg_2_agg_id={v: v for v in range(config["S_disagg"])},
     fraction=3.0 / 24,
+)
+disagg_2_agg_func = np.vectorize(lambda x: disagg_2_agg_id[x])
+Rider = Rider_disagg.copy()
+Rider[:, 4], Rider[:, 5] = disagg_2_agg_func(Rider_disagg[:, 4]), disagg_2_agg_func(
+    Rider_disagg[:, 5]
 )
 # Load Driver
 Driver = get_driver_m2m_gc(disagg_2_agg_id, config)
@@ -212,6 +217,7 @@ OBJ = float("infinity")
 ITER_LIMIT_M2M_GC = config["ITER_LIMIT_M2M_GC"]
 config["ITR_MC_M2M"] = 0
 x_init, y_init, u_init, z_init = None, None, None, None
+tic = time.perf_counter()
 while ITER_LIMIT_M2M_GC:
     print(
         "entering m2m-gc iterations {}, number of aggregated zones {}...".format(
@@ -236,7 +242,6 @@ while ITER_LIMIT_M2M_GC:
             start=(x_init, y_init, u_init, z_init),
         )
         print("optimization finished, matching rate: {}%".format(mr * 100))
-
         # save results for debugging
         pickle.dump(X, open(r"Data\temp\X.p", "wb"))
         pickle.dump(U, open(r"Data\temp\U.p", "wb"))
@@ -306,11 +311,11 @@ while ITER_LIMIT_M2M_GC:
             "wb",
         ),
     )
-    if OBJ in OBJ_set_m2m_gc and not config["DEBUG_MODE"]:
-        OBJ_set_m2m_gc.append(OBJ)
-        MR_list.append(mr)
-        R_list.append(len(R_match))
-        break
+    # if OBJ in OBJ_set_m2m_gc and not config["DEBUG_MODE"]:
+    #     OBJ_set_m2m_gc.append(OBJ)
+    #     MR_list.append(mr)
+    #     R_list.append(len(R_match))
+    #     break
     OBJ_set_m2m_gc.append(OBJ)
     # record matching rate, number of matches, and objective value
     MR_list.append(mr)
@@ -367,13 +372,19 @@ while ITER_LIMIT_M2M_GC:
             fraction=3.0 / 24,
         )
     else:
-        disagg_2_agg_id_residual = {
-            v: p for v, p in disagg_2_agg_id.items() if v not in V_bus
-        }
-        # Update Rider
-        Rider_matched = np.array([row for row in Rider if row[0] in set(R_match)])
-        r_old_2_r_new = {r: i for i, r in enumerate(Rider_matched[:, 0])}
-        Rider_matched[:, 0] = np.arange(len(Rider_matched))
+        disagg_2_agg_func = np.vectorize(lambda x: disagg_2_agg_id[x])
+        Rider_served = np.array([row for row in Rider_disagg if row[0] in set(R_match)])
+        Rider_unserved = np.array(
+            [row for row in Rider_disagg if row[0] not in set(R_match)]
+        )
+        Rider = np.concatenate((Rider_served, Rider_unserved), axis=0)
+        r_old_2_r_new = {r: i for i, r in enumerate(Rider[:, 0])}
+        # Permute Rider_disagg according to Rider
+        Rider_disagg = Rider_disagg[Rider[:, 0], :]
+        Rider[:, 0], Rider_disagg[:, 0] = np.arange(len(Rider)), np.arange(len(Rider))
+        Rider[:, 4], Rider[:, 5] = disagg_2_agg_func(
+            Rider_disagg[:, 4]
+        ), disagg_2_agg_func(Rider_disagg[:, 5])
 
         # convert the old agg nodes to the new agg nodes
         x_init = {
@@ -399,21 +410,6 @@ while ITER_LIMIT_M2M_GC:
         z_init = {r_old_2_r_new[r] for r in R_match}
         u_init = {(r_old_2_r_new[r], d) for r, d in U}
 
-        p_old_2_p_new_func = np.vectorize(lambda x: p_old_2_p_new[x])
-        Rider_matched[:, 4], Rider_matched[:, 5] = (
-            p_old_2_p_new_func(Rider_matched[:, 4]),
-            p_old_2_p_new_func(Rider_matched[:, 5]),
-        )
-        Rider = get_rider_agg_diagg(
-            ttrips_dict,
-            config,
-            tau_disagg,
-            disagg_2_agg_id=disagg_2_agg_id_residual,
-            fraction=3.0 / 24,
-        )
-        Rider[:, 0] = Rider[:, 0] + len(Rider_matched)
-        Rider = np.concatenate((Rider_matched, Rider), axis=0)
-
     # Load Driver
     Driver = get_driver_m2m_gc(disagg_2_agg_id, config)
     FR = {
@@ -424,7 +420,8 @@ while ITER_LIMIT_M2M_GC:
         for d, route in FR_origin.items()
     }
     ITER_LIMIT_M2M_GC -= 1
-
+toc = time.perf_counter() - tic
+print("Time elapsed: {}".format(toc))
 # Post-processing: disaggregate Route_D
 Route_D_disagg = direct_disagg(
     Route_D,

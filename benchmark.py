@@ -1,8 +1,8 @@
-import csv, pickle, operator, os, yaml, math
+import csv, pickle, operator, os, yaml, time
 import pandas as pd
 import numpy as np
 import networkx as nx
-from st_network3 import Many2Many
+from st_network3_1 import Many2Many
 from collections import defaultdict
 from trip_prediction import trip_prediction
 from graph_coarsening_local_search import local_search
@@ -57,6 +57,7 @@ from utils import (
     get_driver_disagg,
     get_driver_m2m_gc,
     get_rider,
+    get_rider_agg_diagg,
     load_FR_m2m_gc,
     load_mc_input_2,
     # load_neighbor,
@@ -132,12 +133,12 @@ tau_disagg, tau2_disagg = load_tau_disagg(config)
 
 if not config["DEMAND_MODEL"]:
     try:
-        ttrips_mat = pickle.load(
+        ttrips_dict = pickle.load(
             open(config["m2m_data_loc"] + "ttrips_mat.p", "rb"),
         )
     except:
         print("transit trip table not found, running travel demand model...")
-        ttrips_mat = trip_prediction(
+        ttrips_dict = trip_prediction(
             id_converter,
             mdot_dat,
             stop_zones,
@@ -155,7 +156,7 @@ if not config["DEMAND_MODEL"]:
             gm_wkTT,
         )
 else:
-    ttrips_mat = trip_prediction(
+    ttrips_dict = trip_prediction(
         id_converter,
         mdot_dat,
         stop_zones,
@@ -174,24 +175,52 @@ else:
     )
 print("trip generation finished, entering optimization model...")
 
-disagg_2_agg_id = {v: {v} for v in range(config["S_disagg"])}
+disagg_2_agg_id = {v: v for v in range(config["S_disagg"])}
 # Load Rider
-trip_dict = disagg_2_agg_trip(
-    ttrips_mat, config, disagg_2_agg_id=disagg_2_agg_id, fraction=3.0 / 24
+Rider = get_rider_agg_diagg(
+    ttrips_dict,
+    config,
+    tau_disagg,
+    disagg_2_agg_id={v: v for v in range(config["S_disagg"])},
+    fraction=3.0 / 24,
 )
-Rider = get_rider(trip_dict, config)
+# Load Driver
 # Load Driver
 Driver = get_driver_m2m_gc(disagg_2_agg_id, config)
+# Load existing bus routes
+if config["FIXED_ROUTE"]:
+    FR_origin, V_bus = load_scen_FR(config)
+else:
+    FR_origin, V_bus = dict(), set()
+FR = {
+    d: [
+        (t1, t2, disagg_2_agg_id[s1], disagg_2_agg_id[s2])
+        for (t1, t2, s1, s2, *_) in route
+    ]
+    for d, route in FR_origin.items()
+}
 OD_d = pd.read_csv(
     config["m2m_data_loc"] + "Driver_OD_disagg.csv", index_col=["ID"]
 ).to_dict("index")
 
 # Run many-to-many model
 if not config["DEBUG_MODE"]:
+    tic = time.perf_counter()
     (X, U, Y, Route_D, mr, OBJ, R_match) = Many2Many(
-        Rider, Driver, tau_disagg, tau2_disagg, ctr_disagg, config, fixed_route_D=FR
+        Rider,
+        Driver,
+        tau_disagg,
+        tau2_disagg,
+        ctr_disagg,
+        config,
+        fixed_route_D=FR,
     )
-    print("optimization finished, matching rate: {}%".format(mr * 100))
+    toc = time.perf_counter() - tic
+    print(
+        "optimization finished, matching rate: {}%, time elapsed: {}s".format(
+            mr * 100, toc
+        )
+    )
 
     # save results for debugging
     pickle.dump(X, open(r"Data\temp\X.p", "wb"))
@@ -218,7 +247,7 @@ else:
 Route_D_disagg = Route_D
 Route_D_disagg.update(FR)
 # plot travel demand
-travel_demand_plot(trip_dict, config)
+travel_demand_plot(ttrips_dict, config)
 # plot routes
 route_plot(Route_D_disagg, config)
 # %% Store results
@@ -280,7 +309,7 @@ R_match_filename = result_loc + r"R_matc_agg.csv"
 R_match.to_csv(R_match_filename, index=False)
 
 pickle.dump(
-    trip_dict,
+    ttrips_dict,
     open(config["m2m_data_loc"] + "trip_dict.p", "wb"),
 )
 

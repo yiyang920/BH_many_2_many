@@ -17,7 +17,8 @@ from gurobipy import GRB
 def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=None):
     """
     Ver 3.1:
-    When penalize ATT-SPTT ratio the SPTT is the shortest path travel time in the disaggregated network.
+    1) When penalize ATT-SPTT ratio the SPTT is the shortest path travel time in the disaggregated network.
+    2) Initialization of variable from previous optimization results
     Ver 3.0:
     This version considers flexible driver's depot.
     ==================================================================================================================
