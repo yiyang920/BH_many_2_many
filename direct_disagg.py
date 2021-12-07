@@ -38,11 +38,7 @@ def direct_disagg(
 
     # set of drivers, drivers' origins and destinations of disagg network
     # not include current fixed routes
-    D = (
-        set(Route_D_agg.keys())
-        if not config["FIXED_ROUTE"]
-        else set(config["driver_set"])
-    )
+    D = set(config["driver_set"]) if config["FIXED_ROUTE"] else set(Route_D_agg.keys())
 
     # load graph of disaggregated network with arc cost as the travel time
     G_t_disagg = pickle.load(open(r"Data\temp\G_t.p", "rb"))

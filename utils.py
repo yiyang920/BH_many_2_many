@@ -598,12 +598,13 @@ def get_driver_disagg(config):
 
 def get_driver_m2m_gc(disagg_2_agg_id, config):
     """
-    Load driver information in disaggregated network.
+    Load driver information in in disaggregated network and transform into
+    aggregated network.
     """
     if config["REPEATED_TOUR"]:
-        Driver = pd.read_csv(config["m2m_data_loc"] + r"Driver_rt.csv")
+        Driver = pd.read_csv(config["m2m_data_loc"] + r"Driver_rt_disagg.csv")
     else:
-        Driver = pd.read_csv(config["m2m_data_loc"] + r"Driver.csv")
+        Driver = pd.read_csv(config["m2m_data_loc"] + r"Driver_disagg.csv")
     Driver.O = Driver.O.apply(lambda x: disagg_2_agg_id[x])
     Driver.D = Driver.D.apply(lambda x: disagg_2_agg_id[x])
 

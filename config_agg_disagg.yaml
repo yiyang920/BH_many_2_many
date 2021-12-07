@@ -3,8 +3,8 @@ DEBUG_MODE: False
 
 mc_fileloc: "mc_input_data2\\" # mode choice model input dictionary
 m2m_data_loc: "many2many_data\\agg_disagg_test\\" # many to many model input dictionary
-m2m_output_loc: "many2many_output\\results\\agg_disagg_test\\" # many to many model output dictionary
-figure_pth: "many2many_output\\figure\\agg_disagg_test\\" # figure path
+m2m_output_loc: "many2many_output\\results\\agg_disagg_test2\\" # many to many model output dictionary
+figure_pth: "many2many_output\\figure\\agg_disagg_test2\\" # figure path
 
 flex_od_driver: # driver list with flex OD, bus mode or dial-a-ride mode
 
@@ -15,8 +15,8 @@ driver_set: # new route's driver id
   # - 7
   # - 8
   # - 9
-  # - 0
-  - 1
+  - 0
+  # - 1
   # - 2
   # - 3
 build_on_list: # optimization based on previous optimized route
@@ -43,7 +43,7 @@ FR_list: # csv file of all fixed routes in the scenario
   # - "grey_fr_1_disagg.csv"
 
 BUILD_ON: False # optimization based on previous optimized route
-FIXED_ROUTE: True # combined with existing fixed routes
+FIXED_ROUTE: False # combined with existing fixed routes
 REPEATED_TOUR: True # true if optimize bus tour, otherwise flex route
 PENALIZE_RATIO: True # penalize ATT-SPTT ratio in objective
 DEMAND_MODEL: False # true if run travel demand model
@@ -59,12 +59,12 @@ VEH_CAP: 16 # vehicle capacity
 LAMBDA: 0.33 # penalization coefficient for ATT-SPTT ratio term
 
 # Gurobi parameters
-TIME_LIMIT: .inf
+TIME_LIMIT: 3600
 MIP_GAP: 5.0e-2
 
 
 ITER_LIMIT_MC_M2M: 1 # limit of mc-m2m iteration
-ITER_LIMIT_M2M_GC: 3 # limit of m2m-gc iteration
+ITER_LIMIT_M2M_GC: 10 # limit of m2m-gc iteration
 
 # Utility file location
 Station_agg: "Data\\temp\\Station_agg.p" # agg station info filepath

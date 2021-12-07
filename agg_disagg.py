@@ -62,7 +62,7 @@ _, _ = get_link_set_disagg(config)
 if config["FIXED_ROUTE"]:
     FR_origin, V_bus = load_scen_FR(config)
 else:
-    FR_origin, V_bus = dict(), set()
+    FR_origin, V_bus = dict(), set([29, 8, 30, 38, 7, 1, 39, 49])
 
 # Diver origin and destination data in disaggregated network
 OD_d = pd.read_csv(
@@ -255,11 +255,11 @@ while ITER_LIMIT_M2M_GC:
             "wb",
         ),
     )
-    if OBJ in OBJ_set_m2m_gc:
-        OBJ_set_m2m_gc.append(OBJ)
-        MR_list.append(mr)
-        R_list.append(len(R_match))
-        break
+    # if OBJ in OBJ_set_m2m_gc:
+    #     OBJ_set_m2m_gc.append(OBJ)
+    #     MR_list.append(mr)
+    #     R_list.append(len(R_match))
+    #     break
     OBJ_set_m2m_gc.append(OBJ)
     # record matching rate, number of matches, and objective value
     MR_list.append(mr)
