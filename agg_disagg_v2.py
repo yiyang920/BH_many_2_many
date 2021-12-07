@@ -67,7 +67,7 @@ _, _ = get_link_set_disagg(config)
 if config["FIXED_ROUTE"]:
     FR_origin, V_bus = load_scen_FR(config)
 else:
-    FR_origin, V_bus = dict(), set()
+    FR_origin, V_bus = dict(), set([29, 8, 30, 38, 7, 1, 39, 49])
 
 # Diver origin and destination data in disaggregated network
 OD_d = pd.read_csv(
@@ -341,9 +341,11 @@ while ITER_LIMIT_M2M_GC:
         else:
             PV.update({num_partition: set(comp)})
     num_partition = len(PV)
+    p_old_2_p_new = dict()
+    for i, p in enumerate(V_bus_agg):
+        p_old_2_p_new[p] = num_partition + i
+        PV.update({num_partition + i: agg_2_disagg_id[p]})
 
-    p_old_2_p_new = {p: num_partition + i for i, p in enumerate(V_bus_agg)}
-    PV.update({num_partition + i: agg_2_disagg_id[p] for i, p in enumerate(V_bus_agg)})
     VP = {v: c for c, p in PV.items() for v in p}
     # Update agg_2_disagg_id and disagg_2_agg_id
     agg_2_disagg_id, disagg_2_agg_id = PV, VP

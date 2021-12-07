@@ -101,9 +101,6 @@ N, K = config["S_disagg"], config["K"]
 print("Initializing aggregated network...")
 # Generate link set of the disaggregated zones
 _, _ = get_link_set_disagg(config)
-# Load existing bus routes
-FR, V_bus = load_scen_FR(config)
-
 # Load neighbor nodes information of disaggregated zones
 ctr_disagg = load_neighbor_disagg(config)
 # Load shortest travel time matrices of disaggregated zones
