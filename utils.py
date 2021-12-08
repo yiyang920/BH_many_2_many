@@ -1694,11 +1694,18 @@ def plot_obj_m2m_gc(OBJ_list, config):
     ax1.set_ylabel("Objective Value")
     ax1.set_xlabel("Iteration")
     ax1.set_xticks(np.arange(1, len(OBJ_list) + 1))
-    fig1.savefig(
-        figure_pth + r"obj_m2m_gc_{}.png".format(config["ITR_MC_M2M"]),
-        bbox_inches="tight",
-        dpi=100,
-    )
+    try:
+        fig1.savefig(
+            figure_pth + r"obj_m2m_gc_{}.png".format(config["ITR_MC_M2M"]),
+            bbox_inches="tight",
+            dpi=100,
+        )
+    except KeyError:
+        fig1.savefig(
+            figure_pth + r"obj_m2m_gc_{}.png".format(0),
+            bbox_inches="tight",
+            dpi=100,
+        )
 
     plt.close()
 

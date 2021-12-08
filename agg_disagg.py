@@ -289,15 +289,15 @@ while ITER_LIMIT_M2M_GC:
     # V_bus = set(s1 for route in Route_D_disagg.values() for _, _, s1, *_ in route)
     TN, _ = get_link_set_disagg(config, V_exclude=V_bus)
     PV, VP = dict(), dict()
-    # for comp in nx.connected_components(TN.to_undirected()):
-    #     num_partition = len(PV)
-    #     if len(comp) > config["K"]:
-    #         K = math.floor(config["K"] / config["S_disagg"] * len(comp))
-    #         TN_sub = TN.subgraph(comp).copy()
-    #         PV_sub, _ = local_search(TN_sub, ttrips_dict, N, K, config, tau2_disagg)
-    #         PV.update({k + num_partition: v for k, v in PV_sub.items()})
-    #     else:
-    #         PV.update({num_partition: set(comp)})
+    for comp in nx.connected_components(TN.to_undirected()):
+        num_partition = len(PV)
+        if len(comp) > config["K"]:
+            K = math.floor(config["K"] / config["S_disagg"] * len(comp))
+            TN_sub = TN.subgraph(comp).copy()
+            PV_sub, _ = local_search(TN_sub, ttrips_dict, N, K, config, tau2_disagg)
+            PV.update({k + num_partition: v for k, v in PV_sub.items()})
+        else:
+            PV.update({num_partition: set(comp)})
     num_partition = len(PV)
     PV.update({num_partition + i: {v} for i, v in enumerate(V_bus)})
     VP = {v: c for c, p in PV.items() for v in p}

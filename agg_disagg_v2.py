@@ -211,7 +211,7 @@ FR = {
     for d, route in FR_origin.items()
 }
 
-MR_list, R_list, OBJ_set_m2m_gc, OBJ_set_mc_m2m = list(), list(), list(), list()
+MR_list, R_list, OBJ_list_m2m_gc, OBJ_set_mc_m2m = list(), list(), list(), list()
 OBJ = float("infinity")
 
 ITER_LIMIT_M2M_GC = config["ITER_LIMIT_M2M_GC"]
@@ -311,12 +311,12 @@ while ITER_LIMIT_M2M_GC:
             "wb",
         ),
     )
-    # if OBJ in OBJ_set_m2m_gc and not config["DEBUG_MODE"]:
-    #     OBJ_set_m2m_gc.append(OBJ)
+    # if OBJ in OBJ_list_m2m_gc and not config["DEBUG_MODE"]:
+    #     OBJ_list_m2m_gc.append(OBJ)
     #     MR_list.append(mr)
     #     R_list.append(len(R_match))
     #     break
-    OBJ_set_m2m_gc.append(OBJ)
+    OBJ_list_m2m_gc.append(OBJ)
     # record matching rate, number of matches, and objective value
     MR_list.append(mr)
     R_list.append(len(R_match))
@@ -441,6 +441,7 @@ if config["FIXED_ROUTE"]:
 # plot matching rate curve and number of matched riders curve
 plot_mr(MR_list, config)
 plot_r(R_list, config)
+plot_obj_m2m_gc(OBJ_list=OBJ_list_m2m_gc, config=config)
 # plot travel demand
 travel_demand_plot(ttrips_dict, config)
 # plot routes
