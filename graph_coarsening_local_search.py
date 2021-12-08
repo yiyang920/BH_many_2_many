@@ -6,7 +6,7 @@ from random import sample
 # from collections import deque
 # from copy import deepcopy
 
-# np.random.seed(seed=100)
+np.random.seed(seed=100)
 
 
 def BFS(TN, C_init, VP):
@@ -54,20 +54,23 @@ def BFS(TN, C_init, VP):
 
 def get_objective(D_uv, PV, tau2_disagg):
 
-    # temp1 = sum(
-    #     D_uv.get((u, v), 0) + D_uv.get((v, u), 0)
-    #     for c1, p1 in PV.items()
-    #     for c2, p2 in PV.items()
-    #     if c2 != c1
-    #     for u in p1
-    #     for v in p2
+    temp1 = sum(
+        D_uv.get((u, v), 0) ** 2 + D_uv.get((v, u), 0) ** 2
+        for c1, p1 in PV.items()
+        for c2, p2 in PV.items()
+        if c2 != c1
+        for u in p1
+        for v in p2
+    )
+    # temp2 = sum(
+    #     D_uv.get((u, v), 0) ** 2 for p in PV.values() for (u, v) in product(p, p)
     # )
     temp2 = sum(
         D_uv.get((u, v), 0) ** 2 * (1 - 1 / tau2_disagg[u, v] ** 2)
         for p in PV.values()
         for (u, v) in product(p, p)
     )
-    return 1.0 * temp2
+    return -1.0 * temp1 + 2.0 * temp2
 
 
 def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
@@ -93,15 +96,18 @@ def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
 
     # Conduct local search
     FIND_GRADIANT = -2
+    MAX_CLUSTER = K - 1
+
     while FIND_GRADIANT != -1:
         FIND_GRADIANT = -1
+        ITERDONE = 0
         # print("border",border)
         border_random = np.random.permutation(list(border))
         for v in border_random:
             if len(PV[VP[v]]) < 2:
                 continue
             if FIND_GRADIANT >= 0:
-
+                print("update bridges")
                 bridges[FIND_GRADIANT] = {
                     VP[j] for j in TN.neighbors(FIND_GRADIANT)
                 } | {VP[FIND_GRADIANT]}
@@ -139,6 +145,7 @@ def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
                         print(OBJ)
                         FIND_GRADIANT = v
                         # froze = {v}
+                        ITERDONE = 1
                         break
                     # Recover mappings if OBJ not decreasing
                     PV[current_part].add(v)
@@ -147,6 +154,58 @@ def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
                     # for k, p in PV.items():
                     # if v in p:
                     # print(VP[v] == k )
+
+            if not ITERDONE:
+                for v in V:
+                    current_part = VP[v]
+                    if len(PV[current_part]) == 1:
+                        for part in bridges[v]:
+                            if part != current_part:
+                                del PV[current_part]
+                                PV[part].add(v)
+                                VP[v] = part
+                                OBJ_new = get_objective(D_uv, PV, tau2_disagg)
+                                if OBJ_new < OBJ and K - 2 <= len(PV):
+                                    OBJ = OBJ_new
+                                    print(OBJ, "delete")
+                                    FIND_GRADIANT = v
+                                    # froze = {v}
+                                    ITERDONE = 1
+                                    break
+                                # Recover mappings if OBJ not decreasing
+                                PV[current_part] = {v}
+                                PV[part].remove(v)
+                                VP[v] = current_part
+                    else:
+                        G = TN.subgraph(PV[current_part]).copy()
+                        G.remove_node(v)
+                        MAX_CLUSTER_TEMP = MAX_CLUSTER
+                        MAX_CLUSTER += 1
+                        PV[MAX_CLUSTER] = {v}
+                        VP[v] = MAX_CLUSTER
+
+                        for component in nx.strongly_connected_components(G):
+                            MAX_CLUSTER += 1
+                            PV[MAX_CLUSTER] = set(component)
+                            for item in component:
+                                VP[item] = MAX_CLUSTER
+                        del PV[current_part]
+                        OBJ_new = get_objective(D_uv, PV, tau2_disagg)
+                        if OBJ_new < OBJ and len(PV) <= K - 2:
+                            OBJ = OBJ_new
+                            print(OBJ, "add")
+                            FIND_GRADIANT = v
+                            # froze = {v}
+                            ITERDONE = 1
+                            break
+                        PV[current_part] = set()
+                        for part in range(MAX_CLUSTER_TEMP + 1, MAX_CLUSTER + 1):
+                            PV[current_part].update(PV[part])
+                            for item in PV[part]:
+                                VP[item] = current_part
+                            del PV[part]
+                if ITERDONE:
+                    break
 
     return PV, VP
 

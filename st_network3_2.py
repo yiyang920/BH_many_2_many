@@ -723,7 +723,8 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
 
     m.params.TimeLimit = TL
     m.params.MIPGap = MIP_GAP
-    m.params.Method = 0
+    m.params.Method = 1
+    m.params.Presolve = 0
     m.optimize()
 
     if m.status == GRB.TIME_LIMIT:
