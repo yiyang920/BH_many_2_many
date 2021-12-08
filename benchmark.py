@@ -46,7 +46,7 @@ import csv, pickle, operator, os, yaml, math
 import pandas as pd
 import numpy as np
 import networkx as nx
-from st_network3 import Many2Many
+from st_network3_2 import Many2Many
 from collections import defaultdict
 from trip_prediction import trip_prediction
 from graph_coarsening_local_search import local_search
