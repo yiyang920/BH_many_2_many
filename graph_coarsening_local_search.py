@@ -107,7 +107,7 @@ def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
             if len(PV[VP[v]]) < 2:
                 continue
             if FIND_GRADIANT >= 0:
-                print("update bridges")
+                # print("update bridges")
                 bridges[FIND_GRADIANT] = {
                     VP[j] for j in TN.neighbors(FIND_GRADIANT)
                 } | {VP[FIND_GRADIANT]}
@@ -204,8 +204,8 @@ def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
                             for item in PV[part]:
                                 VP[item] = current_part
                             del PV[part]
-                if ITERDONE:
-                    break
+                    if ITERDONE:
+                        break
 
     return PV, VP
 
