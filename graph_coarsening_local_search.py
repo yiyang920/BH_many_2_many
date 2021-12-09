@@ -97,13 +97,13 @@ def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
     # Conduct local search
     FIND_GRADIANT = -2
     MAX_CLUSTER = K - 1
-
     while FIND_GRADIANT != -1:
         FIND_GRADIANT = -1
-        ITERDONE = 0
         # print("border",border)
+        ITERDONE = 0
         border_random = np.random.permutation(list(border))
         for v in border_random:
+            ITERDONE = 0
             if len(PV[VP[v]]) < 2:
                 continue
             if FIND_GRADIANT >= 0:
