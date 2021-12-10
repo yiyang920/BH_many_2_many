@@ -499,10 +499,14 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
         DL_d.update(FRL_d)
 
     ### Variables ###
-    x = m.addVars(DL_d, vtype=GRB.CONTINUOUS, lb=0, ub=1)
-    y = m.addVars(RDL_rd, vtype=GRB.CONTINUOUS, lb=0, ub=1)
-    u = m.addVars(RD, vtype=GRB.CONTINUOUS, lb=0, ub=1)
-    z = m.addVars(R, vtype=GRB.BINARY)
+    # x = m.addVars(DL_d, vtype=GRB.CONTINUOUS, lb=0, ub=1)
+    # y = m.addVars(RDL_rd, vtype=GRB.CONTINUOUS, lb=0, ub=1)
+    # u = m.addVars(RD, vtype=GRB.CONTINUOUS, lb=0, ub=1)
+    # z = m.addVars(R, vtype=GRB.BINARY)
+    x = m.addVars(DL_d, vtype=GRB.BINARY, name="x")
+    y = m.addVars(RDL_rd, vtype=GRB.BINARY, name="y")
+    u = m.addVars(RD, vtype=GRB.BINARY, name="u")
+    z = m.addVars(R, vtype=GRB.BINARY, name="z")
 
     if FIXED_ROUTE and fixed_route_D != None:
         for (d, n1, n2) in FRL_d:
@@ -725,6 +729,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
     m.params.MIPGap = MIP_GAP
     m.params.Method = 1
     m.params.Presolve = 0
+    m = m.relax()
     m.optimize()
 
     if m.status == GRB.TIME_LIMIT:
