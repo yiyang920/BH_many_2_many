@@ -207,6 +207,8 @@ def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
                     if ITERDONE:
                         break
 
+    PV = {i: p for i, (_, p) in enumerate(PV.items())}
+    VP = {v: c for c, p in PV.items for v in p}
     return PV, VP
 
 
