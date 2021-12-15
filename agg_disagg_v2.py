@@ -218,7 +218,7 @@ ITER_LIMIT_M2M_GC = config["ITER_LIMIT_M2M_GC"]
 config["ITR_MC_M2M"] = 0
 x_init, y_init, u_init, z_init = None, None, None, None
 tic = time.perf_counter()
-while ITER_LIMIT_M2M_GC:
+while True:
     print(
         "entering m2m-gc iterations {}, number of aggregated zones {}...".format(
             config["ITER_LIMIT_M2M_GC"] + 1 - ITER_LIMIT_M2M_GC,
@@ -320,6 +320,10 @@ while ITER_LIMIT_M2M_GC:
     # record matching rate, number of matches, and objective value
     MR_list.append(mr)
     R_list.append(len(R_match))
+
+    if ITER_LIMIT_M2M_GC <= 1:
+        break
+
     # node set with bus service in of disaggregated network
     V_bus_agg = list(
         set(s1 for route in Route_D.values() for _, _, s1, *_, in route)

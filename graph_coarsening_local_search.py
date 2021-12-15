@@ -66,9 +66,7 @@ def get_objective(D_uv, PV, tau2_disagg):
     #     D_uv.get((u, v), 0) ** 2 for p in PV.values() for (u, v) in product(p, p)
     # )
     temp2 = sum(
-        D_uv.get((u, v), 0) ** 2 * (1 - 1 / tau2_disagg[u, v] ** 2)
-        for p in PV.values()
-        for (u, v) in product(p, p)
+        D_uv.get((u, v), 0) ** 2 * (1) for p in PV.values() for (u, v) in product(p, p)
     )
     return -1.0 * temp1 + 2.0 * temp2
 
@@ -191,12 +189,21 @@ def local_search(TN, D_uv, N, K, config, tau2_disagg, V_exclude=None):
                                 VP[item] = MAX_CLUSTER
                         del PV[current_part]
                         OBJ_new = get_objective(D_uv, PV, tau2_disagg)
-                        if OBJ_new < OBJ and len(PV) <= K - 2:
+                        if OBJ_new < OBJ and len(PV) <= K + 2:
                             OBJ = OBJ_new
                             print(OBJ, "add")
                             FIND_GRADIANT = v
                             # froze = {v}
                             ITERDONE = 1
+                            for item in {
+                                nei
+                                for g in set(G.nodes) | {v}
+                                for nei in set(TN.neighbors(g)) | {g}
+                            }:
+                                bridges[item] = {VP[j] for j in TN.neighbors(item)} | {
+                                    VP[item]
+                                }
+
                             break
                         PV[current_part] = set()
                         for part in range(MAX_CLUSTER_TEMP + 1, MAX_CLUSTER + 1):

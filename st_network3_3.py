@@ -16,6 +16,8 @@ from gurobipy import GRB
 
 def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=None):
     """
+    Ver 3.2:
+    Relax variable x, y, u.
     Ver 3.1:
     1) When penalize ATT-SPTT ratio the SPTT is the shortest path travel time in the disaggregated network.
     2) Initialization of variable from previous optimization results
@@ -497,6 +499,10 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
         DL_d.update(FRL_d)
 
     ### Variables ###
+    # x = m.addVars(DL_d, vtype=GRB.CONTINUOUS, lb=0, ub=1)
+    # y = m.addVars(RDL_rd, vtype=GRB.CONTINUOUS, lb=0, ub=1)
+    # u = m.addVars(RD, vtype=GRB.CONTINUOUS, lb=0, ub=1)
+    # z = m.addVars(R, vtype=GRB.BINARY)
     x = m.addVars(DL_d, vtype=GRB.BINARY, name="x")
     y = m.addVars(RDL_rd, vtype=GRB.BINARY, name="y")
     u = m.addVars(RD, vtype=GRB.BINARY, name="u")
@@ -703,7 +709,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
         "feasibility2",
     )  # RD includes dummy driver, should exclude d_p
 
-    # m.addConstrs((u.sum(r, "*") - 1 - V_r[r] <= 0 for r in R), "tranfer_limit")
+    m.addConstrs((u.sum(r, "*") - 1 - V_r[r] <= 0 for r in R), "tranfer_limit")
 
     # repeated tour constraint
     if REPEATED_TOUR:
@@ -721,6 +727,9 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
 
     m.params.TimeLimit = TL
     m.params.MIPGap = MIP_GAP
+    m.params.Method = 1
+    m.params.Presolve = 0
+    m = m.relax()
     m.optimize()
 
     if m.status == GRB.TIME_LIMIT:
