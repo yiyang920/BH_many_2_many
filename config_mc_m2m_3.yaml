@@ -2,9 +2,9 @@
 DEBUG_MODE: False
 
 mc_fileloc: "mc_input_data2\\" # mode choice model input dictionary
-m2m_data_loc: "many2many_data\\contrained_2\\" # many to many model input dictionary
-m2m_output_loc: "many2many_output\\results\\contrained_2\\" # many to many model output dictionary
-figure_pth: "many2many_output\\figure\\contrained_2\\" # figure path
+m2m_data_loc: "many2many_data\\contrained_3\\" # many to many model input dictionary
+m2m_output_loc: "many2many_output\\results\\contrained_3\\" # many to many model output dictionary
+figure_pth: "many2many_output\\figure\\contrained_3\\" # figure path
 
 driver_set: # new route's driver id
   # - 4
@@ -31,14 +31,14 @@ FR_list: # csv file of all fixed routes in the scenario
   # - "blue_revised_fr_2_disagg.csv"
   # - "red_fr_1_disagg.csv"
   - "red_revised_fr_1_disagg.csv"
-  - "red_revised_fr_2_disagg.csv"
+  # - "red_revised_fr_2_disagg.csv"
   # - "yellow_fr_1_disagg.csv"
   - "yellow_revised_fr_1_disagg.csv"
-  - "yellow_revised_fr_2_disagg.csv"
-  - "brown_fr_1_disagg.csv"
-  - "brown_fr_2_disagg.csv"
-  - "grey_fr_1_disagg.csv"
-  - "grey_fr_1_disagg.csv"
+  # - "yellow_revised_fr_2_disagg.csv"
+  # - "brown_fr_1_disagg.csv"
+  # - "brown_fr_2_disagg.csv"
+  # - "grey_fr_1_disagg.csv"
+  # - "grey_fr_1_disagg.csv"
 
 BUILD_ON: False # optimization based on previous optimized route
 FIXED_ROUTE: True # combined with existing fixed routes

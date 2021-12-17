@@ -2,9 +2,9 @@
 DEBUG_MODE: False
 
 mc_fileloc: "mc_input_data2\\" # mode choice model input dictionary
-m2m_data_loc: "many2many_data\\contrained_2_DaR_40\\" # many to many model input dictionary
-m2m_output_loc: "many2many_output\\results\\contrained_2_DaR_40\\" # many to many model output dictionary
-figure_pth: "many2many_output\\figure\\contrained_2_DaR_40\\" # figure path
+m2m_data_loc: "many2many_data\\contrained_3_DaR_40\\" # many to many model input dictionary
+m2m_output_loc: "many2many_output\\results\\contrained_3_DaR_40\\" # many to many model output dictionary
+figure_pth: "many2many_output\\figure\\contrained_3_DaR_40\\" # figure path
 
 driver_set: # new route's driver id
   # - 4
@@ -50,7 +50,7 @@ DEMAND_MODEL: False # true if run travel demand model
 S: 69 # number of aggregated zones
 S_disagg: 69 # number of disaggregated zones
 K: 30 # number of partitions
-T: 62 # time horizon
+T: 42 # time horizon
 DELTA_t: 1 # discrete time interval in minutes
 beta: 0 # x DELTA_t (mins) time flexibility budget
 VEH_CAP: 16 # vehicle capacity
