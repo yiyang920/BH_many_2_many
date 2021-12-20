@@ -442,11 +442,6 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
         RN_r[r] = RN_r[r] - SN_r[r]
         RN_r[r] = RN_r[r] - EN_r[r]
 
-    # ----------------------------------------------------
-    m = gp.Model("many2many")
-    # m.params.OutputFlag = 0
-    # m.params.Threads = 2
-
     TL = TIME_LIMIT
 
     ### Sets ###
@@ -495,7 +490,10 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
         )
 
         DL_d.update(FRL_d)
-
+    # ----------------------------------------------------
+    m = gp.Model("many2many")
+    # m.params.OutputFlag = 0
+    # m.params.Threads = 2
     ### Variables ###
     x = m.addVars(DL_d, vtype=GRB.BINARY, name="x")
     y = m.addVars(RDL_rd, vtype=GRB.BINARY, name="y")
