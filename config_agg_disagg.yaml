@@ -64,7 +64,7 @@ MIP_GAP: 5.0e-2
 
 
 ITER_LIMIT_MC_M2M: 1 # limit of mc-m2m iteration
-ITER_LIMIT_M2M_GC: 1 # limit of m2m-gc iteration
+ITER_LIMIT_M2M_GC: 2 # limit of m2m-gc iteration
 
 # Utility file location
 Station_agg: "Data\\temp\\Station_agg.p" # agg station info filepath

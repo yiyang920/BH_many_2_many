@@ -197,7 +197,7 @@ Rider_disagg = get_rider_agg_diagg(
     config,
     tau_disagg,
     disagg_2_agg_id={v: v for v in range(config["S_disagg"])},
-    fraction=3.0 / 24,
+    fraction=1.3 / 24,
 )
 disagg_2_agg_func = np.vectorize(lambda x: disagg_2_agg_id[x])
 Rider = Rider_disagg.copy()
@@ -341,7 +341,9 @@ while True:
     if config["FIXED_ROUTE"]:
         # Update route with the fixed route schedule
         Route_D_disagg.update(FR_origin)
-    Y_rl, _ = disagg_sol(Rider=Rider_disagg, U_rd=U, route_d=Route_D, config=config)
+    Y_rl, _ = disagg_sol(
+        Rider=Rider_disagg, U_rd=U, route_d=Route_D_disagg, config=config
+    )
     # node set with bus service in aggregated & disaggregated network
     V_bus_agg = list(
         set(s1 for route in Route_D.values() for _, _, s1, *_, in route)

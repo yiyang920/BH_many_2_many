@@ -10,9 +10,9 @@ from collections import defaultdict
 
 
 def disagg_sol(
-    Rider: np.ndarry,
+    Rider: np.ndarray,
     U_rd: dict,
-    route_d: dict,
+    route_d: dict[int, list[tuple[int, int, int, int, int, int]]],
     config: dict,
 ) -> tuple[set[tuple[int, int, int, int, int, int]], dict]:
     """
@@ -22,7 +22,7 @@ def disagg_sol(
     MIP_GAP = config["MIP_GAP"]
     PENALIZE_RATIO = config["PENALIZE_RATIO"]
     S = config["S_disagg"]
-    Tmax = max(station[-1][1] for station in route_d.values)
+    Tmax = int(max([station[-1][1] for station in route_d.values()]))
     # Rider data
     R, O_r, D_r, ED_r, LA_r, SP_r = gp.multidict(
         {
@@ -50,10 +50,12 @@ def disagg_sol(
     # Dummy driver id
     d_dummy = max(route_d.keys()) + 1
     RDL.update(
-        set(r, d_dummy, t * S + s, (t + 1) * S + s)
-        for t in range(ED_r[r], Tmax + 1)
-        for s in V
-        for r in R
+        set(
+            (r, d_dummy, t * S + s, (t + 1) * S + s)
+            for r in R
+            for t in range(ED_r[r], Tmax + 1)
+            for s in V
+        )
     )
     RDL = gp.tuplelist(list(RDL))
     RDL_r = {rider: [(d, n1, n2) for r, d, n1, n2 in RDL if r == rider] for rider in R}
@@ -66,7 +68,7 @@ def disagg_sol(
     }
     # Node set for each rider, including the waiting nodes, not SNs, and ENs
     RN_r = defaultdict(set)
-    for r, n1, n2 in RDL:
+    for r, _, n1, n2 in RDL:
         RN_r[r].update({n1, n2})
     for r in R:
         RN_r[r] = RN_r[r] - SN_r[r]
@@ -74,7 +76,8 @@ def disagg_sol(
 
     ### Variables ###
     m = gp.Model("many2many")
-    y = m.addVars(RDL, vtype=GRB.BINARY)
+    # y = m.addVars(RDL, vtype=GRB.BINARY)
+    y = m.addVars(RDL, vtype=GRB.CONTINUOUS, lb=0, ub=1)
     if PENALIZE_RATIO:
         LAMBDA = config["LAMBDA"]
         m.setObjective(
@@ -82,7 +85,7 @@ def disagg_sol(
                 LAMBDA
                 / SP_r[r]
                 * gp.quicksum(
-                    (n2 // S - n1 // S) * y[r, n1, n2] for (n1, n2) in RDL_r[r]
+                    (n2 // S - n1 // S) * y[r, d, n1, n2] for (d, n1, n2) in RDL_r[r]
                 )
                 for r in R
             ),
@@ -134,8 +137,68 @@ def disagg_sol(
         }
     elif m.status == GRB.INFEASIBLE:
         m.computeIIS()
-        m.write(r"many2many_output\model.ilp")
+        m.write(config["m2m_output_loc"] + r"model.ilp")
         raise ValueError("Infeasible solution!")
     else:
         print("Status code: {}".format(m.status))
     return (Y, m.ObjVal)
+
+
+if __name__ == "__main__":
+    import yaml, pickle
+    import pandas as pd
+    from direct_disagg import direct_disagg
+    from utils import load_neighbor_disagg, load_tau_disagg
+
+    with open("config_agg_disagg.yaml", "r+") as fopen:
+        config = yaml.load(fopen, Loader=yaml.FullLoader)
+    config["m2m_data_loc"] = r"many2many_data\\disagg_test\\"
+    config["m2m_output_loc"] = r"many2many_data\\disagg_test\\"
+    # load existing results for debugging
+    X = pickle.load(open(config["m2m_data_loc"] + r"X.p", "rb"))
+    U = pickle.load(open(config["m2m_data_loc"] + r"U.p", "rb"))
+    Y = pickle.load(open(config["m2m_data_loc"] + r"Y.p", "rb"))
+    Route_D = pickle.load(open(config["m2m_data_loc"] + r"Route_D.p", "rb"))
+    mr = pickle.load(open(config["m2m_data_loc"] + r"mr.p", "rb"))
+    OBJ = pickle.load(open(config["m2m_data_loc"] + r"OBJ.p", "rb"))
+    R_match = pickle.load(open(config["m2m_data_loc"] + r"R_match.p", "rb"))
+
+    Driver = pickle.load(open(config["m2m_data_loc"] + r"Driver.p", "rb"))
+    tau = pickle.load(open(config["m2m_data_loc"] + r"tau_agg.p", "rb"))
+    agg_2_disagg_id = pickle.load(
+        open(
+            config["m2m_data_loc"] + r"agg_2_disagg_id_{}.p".format(1),
+            "rb",
+        ),
+    )
+    disagg_2_agg_id = pickle.load(
+        open(
+            config["m2m_data_loc"] + r"disagg_2_agg_id_{}.p".format(1),
+            "rb",
+        ),
+    )
+    # Load neighbor nodes information of disaggregated zones
+    ctr_disagg = load_neighbor_disagg(config)
+    # Load shortest travel time matrices of disaggregated zones
+    tau_disagg, tau2_disagg = load_tau_disagg(config)
+    OD_d = pd.read_csv(
+        config["m2m_data_loc"] + "Driver_OD_disagg.csv", index_col=["ID"]
+    ).to_dict("index")
+    Route_D = direct_disagg(
+        Route_D,
+        OD_d,
+        Driver,
+        tau_disagg,
+        ctr_disagg,
+        agg_2_disagg_id,
+        disagg_2_agg_id,
+        config,
+    )
+    Rider = np.loadtxt(
+        config["m2m_data_loc"] + r"Rider_disagg.csv",
+        skiprows=1,
+        dtype=int,
+        delimiter=",",
+    )
+    Y, obj = disagg_sol(Rider, U, Route_D, config)
+    print(Y, obj)

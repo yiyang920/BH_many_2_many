@@ -5,13 +5,10 @@
 import pandas as pd
 import numpy as np
 import networkx as nx
-import os
-import itertools
-import scipy.sparse as sp
-from scipy.spatial import distance
-import scipy.sparse as sp
+import os, itertools
 import gurobipy as gp
 from gurobipy import GRB
+from collections import defaultdict
 
 
 def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=None):
@@ -126,7 +123,12 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
         # rider r 登上 driver d 最早班次
         RD_on = {(r, d): ED_r[r] // (Duration_d[d]) for r in R for d in set(D) - {d_p}}
         # rider r 离开 driver d 的最晚班次
-        RD_off = {(r, d): LA_r[r] // (Duration_d[d]) for r in R for d in set(D) - {d_p}}
+        RD_off = {
+            (r, d): min(LA_r[r], ED_d[d] + num_tour[d] * Duration_d[d])
+            // (Duration_d[d])
+            for r in R
+            for d in set(D) - {d_p}
+        }
 
     # ---------------------------------------------------------
     if REPEATED_TOUR:
@@ -191,7 +193,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
         drop2 = {
             (r, d): np.minimum(
                 LA_r[r],
-                LA_d[d] + RD_on[r, d] * (Duration_d[d]) - tau[D_r[r], D_d[d]],
+                LA_d[d] + (RD_off[r, d] - 1) * (Duration_d[d]) - tau[D_r[r], D_d[d]],
             )
             for (r, d) in RD
             if d not in set(D_flex_OD) | {d_p}
@@ -214,7 +216,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
     EN_r = {
         r: set((LA_r[r] - m) * S + D_r[r] for m in range(LA_r[r] - ED_r[r])) for r in R
     }
-    L_d, N_d, SN_d, EN_d, MN_d = {}, {}, {}, {}, {}
+    L_d, N_d, SN_d, EN_d, MN_d = {}, defaultdict(set), {}, {}, defaultdict(set)
     L_rd, N_rd = {}, {}
 
     # %% Reduced network
@@ -233,15 +235,16 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
                     elif s == D_d[d]:
                         EN_d[d] = T_d[d][ind] * S + s
                     else:
-                        MN_d.setdefault(d, set()).update(T_d[d][ind] * S + s)
+                        MN_d[d].update(T_d[d][ind] * S + s)
+
                 else:
                     if s == O_d[d]:
                         SN_d[d] = T_d[d][ind] * S + s
                         EN_d[d] = T_d[d][ind] * S + s
                     else:
-                        MN_d.setdefault(d, set()).update(T_d[d][ind] * S + s)
+                        MN_d[d].update(T_d[d][ind] * S + s)
 
-                N_d.setdefault(d, set()).update(T_d[d][ind] * S + s)
+                N_d[d].update(T_d[d][ind] * S + s)
 
             TN_d = TN.subgraph(N_d[d])
             L_d[d] = set(TN_d.edges())
@@ -288,19 +291,15 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
 
     else:
         for d in set(D) - set(D_flex_OD) - {d_p}:
-            for m in range(num_tour[d]):
-                Gs = list(
-                    np.where(tau[O_d[d], :] + tau[:, D_d[d]] <= TW_d[d])[0]
-                )  # list of reachable zones for each driver
-
-                for s in Gs:
-                    ind = np.where(
-                        (ED_d[d] + tau[O_d[d], s] <= T_d[d])
-                        & (T_d[d] + tau[s, D_d[d]] <= LA_d[d])
-                    )[
-                        0
-                    ]  # for each reachable zone, the feasible routing time range for each driver
-
+            # list of reachable zones for each driver
+            Gs = list(np.where(tau[O_d[d], :] + tau[:, D_d[d]] <= TW_d[d])[0])
+            for s in Gs:
+                # for each reachable zone, the feasible routing time range for each driver
+                ind = np.where(
+                    (ED_d[d] + tau[O_d[d], s] <= T_d[d])
+                    & (T_d[d] + tau[s, D_d[d]] <= LA_d[d])
+                )[0]
+                for m in range(num_tour[d]):
                     if O_d[d] != D_d[d]:
                         if s == O_d[d] and m == 0:
                             SN_d[d] = (
@@ -313,9 +312,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
                             ) * S + s  # need to be the last destination node
 
                         else:
-                            MN_d.setdefault(d, set()).update(
-                                (T_d[d][ind] + m * (Duration_d[d])) * S + s
-                            )
+                            MN_d[d].update((T_d[d][ind] + m * (Duration_d[d])) * S + s)
                     else:
                         if s == O_d[d] and m == 0:
                             SN_d[d] = (
@@ -337,13 +334,10 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
                                 ]
 
                         else:
-                            MN_d.setdefault(d, set()).update(
-                                (T_d[d][ind] + m * (Duration_d[d])) * S + s
-                            )
+                            MN_d[d].update((T_d[d][ind] + m * (Duration_d[d])) * S + s)
 
-                    N_d.setdefault(d, set()).update(
-                        (T_d[d][ind] + m * (Duration_d[d])) * S + s
-                    )  # end for loop
+                    N_d[d].update((T_d[d][ind] + m * (Duration_d[d])) * S + s)
+                    # ---end for loop---
 
             TN_d = TN.subgraph(N_d[d])
             L_d[d] = set(TN_d.edges())
