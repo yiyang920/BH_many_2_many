@@ -14,8 +14,6 @@ def disagg_sol(
     Rider: np.ndarry,
     U_rd: dict,
     route_d: dict,
-    tau2_disagg: np.ndarray,
-    ctr_disagg: dict,
     config: dict,
 ):
     """
@@ -25,19 +23,7 @@ def disagg_sol(
     MIP_GAP = config["MIP_GAP"]
     PENALIZE_RATIO = config["PENALIZE_RATIO"]
     S = config["S_disagg"]
-    T = config["T"]
-    Tmin, Tmax = min(station[0][0] for station in route_d.values), max(
-        station[-1][1] for station in route_d.values
-    )
-    # Time expanded network
-    # Every node in time-expaned network is defined as t_i*S+s_i
-    # which maps (t_i,s_i) into a unique n_i value
-    TN = nx.DiGraph()
-    for t in range(Tmin, Tmax + 1):
-        for i in range(S):
-            for j in ctr_disagg[i]:
-                if t + tau2_disagg[i, j] <= T:
-                    TN.add_edge(t * S + i, (t + tau2_disagg[i, j]) * S + j)
+    Tmax = max(station[-1][1] for station in route_d.values)
     # Rider data
     R, O_r, D_r, ED_r, LA_r, SP_r = gp.multidict(
         {
@@ -63,10 +49,17 @@ def disagg_sol(
         for (t1, t2, s1, s2, *_) in route_d[d]
     )
     RL.update(
-        set(r, t * S + s, (t + 1) * S + s) for t in range(Tmax) for s in V for r in R
+        set(r, t * S + s, (t + 1) * S + s)
+        for t in range(ED_r[r], Tmax + 1)
+        for s in V
+        for r in R
     )
     RL = gp.tuplelist(list(RL))
     RL_r = {rider: [(n1, n2) for r, n1, n2 in RL if r == rider] for rider in R}
+    # mapping of link to driver
+    LD = defaultdict(list)
+    for d, (t1, t2, s1, s2, *_) in route_d.items():
+        LD[int(t1 * S + s1), int(t2 * S + s2)].append(d)
 
     SN_r = {
         r: set((ED_r[r] + m) * S + O_r[r] for m in range(LA_r[r] - ED_r[r])) for r in R
@@ -137,5 +130,15 @@ def disagg_sol(
     m.optimize()
 
     if m.status == GRB.TIME_LIMIT or m.status == GRB.OPTIMAL:
-        Y = {e for e in RL if y[e].x > 0.001}
-        # TODO
+        Y = {
+            (r, LD[n1, n2], n1 // S, n2 // S, n1 % S, n2 % S)
+            for r, n1, n2 in RL
+            if y[r, n1, n2].x > 0.001
+        }
+    elif m.status == GRB.INFEASIBLE:
+        m.computeIIS()
+        m.write(r"many2many_output\model.ilp")
+        raise ValueError("Infeasible solution!")
+    else:
+        print("Status code: {}".format(m.status))
+    return (Y, m.ObjVal)
