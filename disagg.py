@@ -15,12 +15,15 @@ def disagg_sol(
     U_rd: dict,
     route_d: dict,
     tau2_disagg: np.ndarray,
-    ctr_disagg,
+    ctr_disagg: dict,
     config: dict,
 ):
     """
     Rider: rider info in disaggregated network
     """
+    TIME_LIMIT = config["TIME_LIMIT"]
+    MIP_GAP = config["MIP_GAP"]
+    PENALIZE_RATIO = config["PENALIZE_RATIO"]
     S = config["S_disagg"]
     T = config["T"]
     Tmin, Tmax = min(station[0][0] for station in route_d.values), max(
@@ -36,20 +39,20 @@ def disagg_sol(
                 if t + tau2_disagg[i, j] <= T:
                     TN.add_edge(t * S + i, (t + tau2_disagg[i, j]) * S + j)
     # Rider data
-    R, O_r, D_r, ED_r, LA_r, SP_r_agg, TW_r, T_r, V_r, SP_r = gp.multidict(
+    R, O_r, D_r, ED_r, LA_r, SP_r = gp.multidict(
         {
             r: [
                 Rider[i, 4],
                 Rider[i, 5],
                 Rider[i, 2],
                 Rider[i, 3],
+                Rider[i, 7],
             ]
             for i, r in enumerate(Rider[:, 0])
             if r in set(r for r, _ in U_rd)
         }
     )
-    # Driver data
-    # D = set(route_d.keys())
+    # Set of visited nodes by transits
     V = set(s1 for station in route_d.values() for _, _, s1, *_ in station) | set(
         s2 for station in route_d.values() for _, _, _, s2, *_ in station
     )
@@ -62,6 +65,7 @@ def disagg_sol(
     RL.update(
         set(r, t * S + s, (t + 1) * S + s) for t in range(Tmax) for s in V for r in R
     )
+    RL = gp.tuplelist(list(RL))
     RL_r = {rider: [(n1, n2) for r, n1, n2 in RL if r == rider] for rider in R}
 
     SN_r = {
@@ -77,10 +81,25 @@ def disagg_sol(
     for r in R:
         RN_r[r] = RN_r[r] - SN_r[r]
         RN_r[r] = RN_r[r] - EN_r[r]
+
     ### Variables ###
     m = gp.Model("many2many")
     y = m.addVars(RL, vtype=GRB.BINARY)
-    m.setObjective(1, GRB.MAXIMIZE)
+    if PENALIZE_RATIO:
+        LAMBDA = config["LAMBDA"]
+        m.setObjective(
+            gp.quicksum(
+                LAMBDA
+                / SP_r[r]
+                * gp.quicksum(
+                    (n2 // S - n1 // S) * y[r, n1, n2] for (n1, n2) in RL_r[r]
+                )
+                for r in R
+            ),
+            GRB.MINIMIZE,
+        )
+    else:
+        m.setObjective(1, GRB.MAXIMIZE)
     ### Constraints ###
     m.addConstrs(
         (
@@ -112,3 +131,11 @@ def disagg_sol(
         ),
         "trans_r",
     )
+
+    m.params.TimeLimit = TIME_LIMIT
+    m.params.MIPGap = MIP_GAP
+    m.optimize()
+
+    if m.status == GRB.TIME_LIMIT or m.status == GRB.OPTIMAL:
+        Y = {e for e in RL if y[e].x > 0.001}
+        # TODO
