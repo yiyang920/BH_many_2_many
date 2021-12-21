@@ -9,6 +9,7 @@ import csv, pickle, operator, os, yaml, math, time
 import pandas as pd
 import numpy as np
 import networkx as nx
+from disagg import disagg_sol
 from st_network3_1 import Many2Many
 from collections import defaultdict
 from trip_prediction import trip_prediction
@@ -326,14 +327,29 @@ while True:
     if ITER_LIMIT_M2M_GC <= 1:
         break
 
-    # node set with bus service in of disaggregated network
+    # Post-processing: disaggregate Route_D
+    Route_D_disagg = direct_disagg(
+        Route_D,
+        OD_d,
+        Driver,
+        tau_disagg,
+        ctr_disagg,
+        agg_2_disagg_id,
+        disagg_2_agg_id,
+        config,
+    )
+    if config["FIXED_ROUTE"]:
+        # Update route with the fixed route schedule
+        Route_D_disagg.update(FR_origin)
+    Y_rl, _ = disagg_sol(Rider=Rider_disagg, U_rd=U, route_d=Route_D, config=config)
+    # node set with bus service in aggregated & disaggregated network
     V_bus_agg = list(
         set(s1 for route in Route_D.values() for _, _, s1, *_, in route)
         | set(s2 for route in Route_D.values() for _, _, _, s2, *_, in route)
     )
-    V_bus = set()
-    for v in V_bus_agg:
-        V_bus.update(set(agg_2_disagg_id[v]))
+    V_bus = set(
+        s1 for station in Route_D_disagg.values() for _, _, s1, *_ in station
+    ) | set(s2 for station in Route_D_disagg.values() for _, _, _, s2, *_ in station)
 
     TN, _ = get_link_set_disagg(config, V_exclude=V_bus)
     PV, VP = dict(), dict()
@@ -347,10 +363,8 @@ while True:
         else:
             PV.update({num_partition: set(comp)})
     num_partition = len(PV)
-    p_old_2_p_new = dict()
-    for i, p in enumerate(V_bus_agg):
-        p_old_2_p_new[p] = num_partition + i
-        PV.update({num_partition + i: agg_2_disagg_id[p]})
+    for i, p in enumerate(V_bus):
+        PV.update({num_partition + i: {p}})
 
     VP = {v: c for c, p in PV.items() for v in p}
     # Update agg_2_disagg_id and disagg_2_agg_id
@@ -380,15 +394,18 @@ while True:
             fraction=3.0 / 24,
         )
     else:
+        # Served riders will be on top, then the rest of riders are followed
         disagg_2_agg_func = np.vectorize(lambda x: disagg_2_agg_id[x])
         Rider_served = np.array([row for row in Rider_disagg if row[0] in set(R_match)])
         Rider_unserved = np.array(
             [row for row in Rider_disagg if row[0] not in set(R_match)]
         )
         Rider = np.concatenate((Rider_served, Rider_unserved), axis=0)
+        # Mapping of rider id from before to after permutation
         r_old_2_r_new = {r: i for i, r in enumerate(Rider[:, 0])}
         # Permute Rider_disagg according to Rider
         Rider_disagg = Rider_disagg[Rider[:, 0], :]
+        # Rename the rider id and re-map rider OD
         Rider[:, 0], Rider_disagg[:, 0] = np.arange(len(Rider)), np.arange(len(Rider))
         Rider[:, 4], Rider[:, 5] = disagg_2_agg_func(
             Rider_disagg[:, 4]
@@ -398,22 +415,21 @@ while True:
         x_init = {
             (
                 d,
-                t1 * config["S"] + p_old_2_p_new[s1],
-                t2 * config["S"] + p_old_2_p_new[s2],
+                t1 * config["S"] + disagg_2_agg_id[s1],
+                t2 * config["S"] + disagg_2_agg_id[s2],
             )
-            for d, route in Route_D.items()
+            for d, route in Route_D_disagg.items()
             for (t1, t2, s1, s2, *_) in route
         }
         y_init = set()
-        for r, d, n1, n2 in Y:
-            t1, t2, s1, s2 = (
-                n1 // S_old,
-                n2 // S_old,
-                p_old_2_p_new[n1 % S_old],
-                p_old_2_p_new[n2 % S_old],
-            )
+        for r, d, t1, t2, s1, s2 in Y_rl:
             y_init.add(
-                (r_old_2_r_new[r], d, t1 * config["S"] + s1, t2 * config["S"] + s2)
+                (
+                    r_old_2_r_new[r],
+                    d,
+                    t1 * config["S"] + disagg_2_agg_id[s1],
+                    t2 * config["S"] + disagg_2_agg_id[s2],
+                )
             )
         z_init = {r_old_2_r_new[r] for r in R_match}
         u_init = {(r_old_2_r_new[r], d) for r, d in U}

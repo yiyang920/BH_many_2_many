@@ -4,7 +4,6 @@ Disaggregate solution from many-to-many problem in a coarse graph.
 Input: matched riders info, disaggregated transit routes.
 """
 import numpy as np
-import networkx as nx
 import gurobipy as gp
 from gurobipy import GRB
 from collections import defaultdict
@@ -15,7 +14,7 @@ def disagg_sol(
     U_rd: dict,
     route_d: dict,
     config: dict,
-):
+) -> tuple[set[tuple[int, int, int, int, int, int]], dict]:
     """
     Rider: rider info in disaggregated network
     """
@@ -43,23 +42,21 @@ def disagg_sol(
         s2 for station in route_d.values() for _, _, _, s2, *_ in station
     )
 
-    RL = set(
-        (r, int(t1 * S + s1), int(t2 * S + s2))
+    RDL = set(
+        (r, d, int(t1 * S + s1), int(t2 * S + s2))
         for r, d in U_rd
         for (t1, t2, s1, s2, *_) in route_d[d]
     )
-    RL.update(
-        set(r, t * S + s, (t + 1) * S + s)
+    # Dummy driver id
+    d_dummy = max(route_d.keys()) + 1
+    RDL.update(
+        set(r, d_dummy, t * S + s, (t + 1) * S + s)
         for t in range(ED_r[r], Tmax + 1)
         for s in V
         for r in R
     )
-    RL = gp.tuplelist(list(RL))
-    RL_r = {rider: [(n1, n2) for r, n1, n2 in RL if r == rider] for rider in R}
-    # mapping of link to driver
-    LD = defaultdict(list)
-    for d, (t1, t2, s1, s2, *_) in route_d.items():
-        LD[int(t1 * S + s1), int(t2 * S + s2)].append(d)
+    RDL = gp.tuplelist(list(RDL))
+    RDL_r = {rider: [(d, n1, n2) for r, d, n1, n2 in RDL if r == rider] for rider in R}
 
     SN_r = {
         r: set((ED_r[r] + m) * S + O_r[r] for m in range(LA_r[r] - ED_r[r])) for r in R
@@ -69,7 +66,7 @@ def disagg_sol(
     }
     # Node set for each rider, including the waiting nodes, not SNs, and ENs
     RN_r = defaultdict(set)
-    for r, n1, n2 in RL:
+    for r, n1, n2 in RDL:
         RN_r[r].update({n1, n2})
     for r in R:
         RN_r[r] = RN_r[r] - SN_r[r]
@@ -77,7 +74,7 @@ def disagg_sol(
 
     ### Variables ###
     m = gp.Model("many2many")
-    y = m.addVars(RL, vtype=GRB.BINARY)
+    y = m.addVars(RDL, vtype=GRB.BINARY)
     if PENALIZE_RATIO:
         LAMBDA = config["LAMBDA"]
         m.setObjective(
@@ -85,7 +82,7 @@ def disagg_sol(
                 LAMBDA
                 / SP_r[r]
                 * gp.quicksum(
-                    (n2 // S - n1 // S) * y[r, n1, n2] for (n1, n2) in RL_r[r]
+                    (n2 // S - n1 // S) * y[r, n1, n2] for (n1, n2) in RDL_r[r]
                 )
                 for r in R
             ),
@@ -96,8 +93,8 @@ def disagg_sol(
     ### Constraints ###
     m.addConstrs(
         (
-            gp.quicksum(y[r, n1, n2] for n1, n2 in RL_r[r] if n1 in SN_r[r])
-            - gp.quicksum(y[r, n1, n2] for n1, n2 in RL_r[r] if n2 in SN_r[r])
+            gp.quicksum(y[r, d, n1, n2] for d, n1, n2 in RDL_r[r] if n1 in SN_r[r])
+            - gp.quicksum(y[r, d, n1, n2] for d, n1, n2 in RDL_r[r] if n2 in SN_r[r])
             == 1
             for r in R
         ),
@@ -106,8 +103,8 @@ def disagg_sol(
 
     m.addConstrs(
         (
-            gp.quicksum(y[r, n1, n2] for n1, n2 in RL_r[r] if n2 in EN_r[r])
-            - gp.quicksum(y[r, n1, n2] for n1, n2 in RL_r[r] if n1 in EN_r[r])
+            gp.quicksum(y[r, d, n1, n2] for d, n1, n2 in RDL_r[r] if n2 in EN_r[r])
+            - gp.quicksum(y[r, d, n1, n2] for d, n1, n2 in RDL_r[r] if n1 in EN_r[r])
             == 1
             for r in R
         ),
@@ -116,8 +113,8 @@ def disagg_sol(
 
     m.addConstrs(
         (
-            gp.quicksum(y[r, n1, n2] for n1, n2 in RL_r[r] if n1 == n)
-            - gp.quicksum(y[r, n1, n2] for n1, n2 in RL_r[r] if n2 == n)
+            gp.quicksum(y[r, d, n1, n2] for d, n1, n2 in RDL_r[r] if n1 == n)
+            - gp.quicksum(y[r, d, n1, n2] for d, n1, n2 in RDL_r[r] if n2 == n)
             == 0
             for r in R
             for n in RN_r[r]
@@ -131,9 +128,9 @@ def disagg_sol(
 
     if m.status == GRB.TIME_LIMIT or m.status == GRB.OPTIMAL:
         Y = {
-            (r, LD[n1, n2], n1 // S, n2 // S, n1 % S, n2 % S)
-            for r, n1, n2 in RL
-            if y[r, n1, n2].x > 0.001
+            (r, d, n1 // S, n2 // S, n1 % S, n2 % S)
+            for r, d, n1, n2 in RDL
+            if y[r, d, n1, n2].x > 0.001
         }
     elif m.status == GRB.INFEASIBLE:
         m.computeIIS()
