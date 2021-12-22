@@ -56,6 +56,8 @@ def direct_disagg(
     # time window for each driver. If repeated tour mode,
     # TW_d should be the time window for the first single tour
     TW_d = {d: Driver[i, 3] - Driver[i, 2] for i, d in enumerate(Driver[:, 0])}
+    ED_d = {d: Driver[i, 2] for i, d in enumerate(Driver[:, 0])}
+    LA_d = {d: Driver[i, 3] for i, d in enumerate(Driver[:, 0])}
     # each driver only register its first tour info
     Route_D_agg = {
         d: [station for station in route if station[0] <= TW_d[d]]
@@ -375,6 +377,17 @@ def direct_disagg(
                         Route_D_disagg[d] += sub_station
                     elif p_size == 1:
                         ds[d] = station_list[0]
+
+    for d, route in Route_D_disagg.items():
+        if temp_t := route[-1][1] < LA_d[d]:
+            temp_station = route[-1][3]
+            Route_D_disagg[d] += [
+                (t, t + 1, temp_station, temp_station)
+                for t in range(temp_t, LA_d[d] + 1)
+            ]
+        elif temp_t > LA_d[d]:
+            raise ValueError("Model Error: longer duration after disaggregation!")
+
     Tour_d, Dur_d = dict(), dict()
     for d, route in Route_D_disagg.items():
         Tour_d[d] = int(T // route[-1][1])
