@@ -379,11 +379,11 @@ def direct_disagg(
                         ds[d] = station_list[0]
 
     for d, route in Route_D_disagg.items():
-        if temp_t := route[-1][1] < LA_d[d]:
+        if (temp_t := int(route[-1][1])) < LA_d[d]:
             temp_station = route[-1][3]
             Route_D_disagg[d] += [
                 (t, t + 1, temp_station, temp_station)
-                for t in range(temp_t, LA_d[d] + 1)
+                for t in range(temp_t, int(LA_d[d] + 1))
             ]
         elif temp_t > LA_d[d]:
             raise ValueError("Model Error: longer duration after disaggregation!")
