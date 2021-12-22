@@ -1,12 +1,14 @@
 import networkx as nx
 import numpy as np
 from itertools import product
-from random import sample
+from random import sample, seed
 
 # from collections import deque
 # from copy import deepcopy
 
-np.random.seed(seed=100)
+SEED = 42
+np.random.seed(seed=SEED)
+seed(SEED)
 
 
 def BFS(TN, C_init, VP):
