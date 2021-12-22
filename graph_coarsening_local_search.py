@@ -6,7 +6,7 @@ from random import sample, seed
 # from collections import deque
 # from copy import deepcopy
 
-SEED = 42
+SEED = 100
 np.random.seed(seed=SEED)
 seed(SEED)
 
