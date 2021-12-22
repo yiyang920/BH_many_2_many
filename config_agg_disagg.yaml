@@ -57,14 +57,14 @@ DELTA_t: 1 # discrete time interval in minutes
 beta: 0 # x DELTA_t (mins) time flexibility budget
 VEH_CAP: 16 # vehicle capacity
 LAMBDA: 0.33 # penalization coefficient for ATT-SPTT ratio term
-
+Rider_Fraction: 1.3
 # Gurobi parameters
 TIME_LIMIT: 3600
 MIP_GAP: 5.0e-2
 
 
 ITER_LIMIT_MC_M2M: 1 # limit of mc-m2m iteration
-ITER_LIMIT_M2M_GC: 2 # limit of m2m-gc iteration
+ITER_LIMIT_M2M_GC: 10 # limit of m2m-gc iteration
 
 # Utility file location
 Station_agg: "Data\\temp\\Station_agg.p" # agg station info filepath

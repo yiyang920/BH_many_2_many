@@ -197,7 +197,7 @@ Rider_disagg = get_rider_agg_diagg(
     config,
     tau_disagg,
     disagg_2_agg_id={v: v for v in range(config["S_disagg"])},
-    fraction=1.3 / 24,
+    fraction=config["Rider_Fraction"] / 24,
 )
 disagg_2_agg_func = np.vectorize(lambda x: disagg_2_agg_id[x])
 Rider = Rider_disagg.copy()
