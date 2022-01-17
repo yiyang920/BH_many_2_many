@@ -59,7 +59,7 @@ VEH_CAP: 16 # vehicle capacity
 LAMBDA: 0.33 # penalization coefficient for ATT-SPTT ratio term
 Rider_Fraction: 1.3
 # Gurobi parameters
-TIME_LIMIT: 3600
+TIME_LIMIT: 500
 MIP_GAP: 5.0e-2
 
 

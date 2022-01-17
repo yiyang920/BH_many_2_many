@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 from disagg import disagg_sol
-from st_network3_1 import Many2Many
+from st_network3_1_1 import Many2Many
 from collections import defaultdict
 from trip_prediction import trip_prediction
 from graph_coarsening_local_search import local_search

@@ -13,6 +13,8 @@ from collections import defaultdict
 
 def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=None):
     """
+    Ver 3.1.2:
+    Force buses start at the ED time and end at LA time.
     Ver 3.1:
     1) When penalize ATT-SPTT ratio the SPTT is the shortest path travel time in the disaggregated network.
     2) Initialization of variable from previous optimization results
@@ -303,31 +305,31 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
                     if O_d[d] != D_d[d]:
                         if s == O_d[d] and m == 0:
                             # need to be the first origin node
-                            SN_d[d] = T_d[d][ind] * S + s
-                            # SN_d[d] = T_d[d][np.array([0])] * S + s
+                            # SN_d[d] = T_d[d][ind] * S + s
+                            SN_d[d] = T_d[d][np.array([0])] * S + s
 
                         elif s == D_d[d] and m == T // (Duration_d[d]) - 1:
                             # need to be the last destination node
-                            EN_d[d] = (T_d[d][ind] + m * (Duration_d[d])) * S + s
-                            # EN_d[d] = (
-                            #     T_d[d][np.array([-1])] + m * (Duration_d[d])
-                            # ) * S + s
-                        else:
-                            MN_d[d].update((T_d[d][ind] + m * (Duration_d[d])) * S + s)
+                            # EN_d[d] = (T_d[d][ind] + m * (Duration_d[d])) * S + s
+                            EN_d[d] = (
+                                T_d[d][np.array([-1])] + m * (Duration_d[d])
+                            ) * S + s
+
+                        MN_d[d].update((T_d[d][ind] + m * (Duration_d[d])) * S + s)
                     else:
                         if s == O_d[d] and m == 0:
                             # need to be the first origin node
-                            SN_d[d] = T_d[d][ind] * S + s
-                            # SN_d[d] = T_d[d][np.array([0])] * S + s
+                            # SN_d[d] = T_d[d][ind] * S + s
+                            SN_d[d] = T_d[d][np.array([0])] * S + s
                             if LA_d[d] in T_d[d][ind]:
                                 SN_d[d] = SN_d[d][SN_d[d] != LA_d[d] * S + O_d[d]]
                             # elif s == D_d[d]:
                         elif s == D_d[d] and m == T // (Duration_d[d]) - 1:
                             # need to be the last destination node
-                            EN_d[d] = (T_d[d][ind] + m * (Duration_d[d])) * S + s
-                            # EN_d[d] = (
-                            #     T_d[d][np.array([-1])] + m * (Duration_d[d])
-                            # ) * S + s
+                            # EN_d[d] = (T_d[d][ind] + m * (Duration_d[d])) * S + s
+                            EN_d[d] = (
+                                T_d[d][np.array([-1])] + m * (Duration_d[d])
+                            ) * S + s
 
                             if ED_d[d] + m * (Duration_d[d]) in T_d[d][ind] + m * (
                                 Duration_d[d]
@@ -337,8 +339,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
                                     != (ED_d[d] + m * (Duration_d[d])) * S + D_d[d]
                                 ]
 
-                        else:
-                            MN_d[d].update((T_d[d][ind] + m * (Duration_d[d])) * S + s)
+                        MN_d[d].update((T_d[d][ind] + m * (Duration_d[d])) * S + s)
 
                     N_d[d].update((T_d[d][ind] + m * (Duration_d[d])) * S + s)
                     # ---end for loop---
@@ -397,6 +398,10 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
                 for d in set(D_flex_OD)
             }
         )
+
+        # exclude SN_d and EN_d from MN_d:
+        for d in set(D) - set(D_flex_OD) - {d_p}:
+            MN_d[d] = MN_d[d] - set(n for n in SN_d[d]) - set(n for n in EN_d[d])
     # Link set for the dummy driver
     L_d[d_p] = set((t * S + s, (t + 1) * S + s) for t in range(T) for s in range(S))
     # Link set for the flex OD drivers
@@ -564,12 +569,25 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
     m.addConstrs(
         (
             gp.quicksum(x[d, n1, n2] for (n1, n2) in L_d[d] if n1 in SN_d[d])
-            # - gp.quicksum(x[d, n1, n2] for (n1, n2) in L_d[d] if n2 in SN_d[d])
+            - gp.quicksum(x[d, n1, n2] for (n1, n2) in L_d[d] if n2 in SN_d[d])
             == 1
             for d in set(D) - {d_p} - set(D_flex_OD)
         ),
         "source_d",
     )
+    # TODO: 解决不可以多次visit SN_d的问题
+    # m.addConstrs(
+    #     (
+    #         gp.quicksum(
+    #             x[d, n1, n2]
+    #             for (n1, n2) in L_d[d]
+    #             if n1 in SN_d[d] and n1 // S == ED_d[d]
+    #         )
+    #         == 1
+    #         for d in set(D) - {d_p} - set(D_flex_OD)
+    #     ),
+    #     "source_d_2",
+    # )
 
     m.addConstrs(
         (
@@ -584,7 +602,7 @@ def Many2Many(Rider, Driver, tau, tau2, ctr, config, fixed_route_D=None, start=N
     m.addConstrs(
         (
             gp.quicksum(x[d, n1, n2] for (n1, n2) in L_d[d] if n2 in EN_d[d])
-            # - gp.quicksum(x[d, n1, n2] for (n1, n2) in L_d[d] if n1 in EN_d[d])
+            - gp.quicksum(x[d, n1, n2] for (n1, n2) in L_d[d] if n1 in EN_d[d])
             == 1
             for d in set(D) - {d_p} - set(D_flex_OD)
         ),

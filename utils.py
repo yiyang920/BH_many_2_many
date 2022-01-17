@@ -278,7 +278,7 @@ def disagg_2_agg_trip(transit_trips_dict, config, disagg_2_agg_id=None, fraction
     return trip_dict
 
 
-def get_rider(trip_dict, config):
+def get_rider(trip_dict, config, save_file=True):
     """
     Generate rider information as a numpy array
     """
@@ -301,7 +301,8 @@ def get_rider(trip_dict, config):
     Rider["SL"] = [10] * N_r
 
     Rider = Rider.fillna(999)
-    Rider.to_csv(config["m2m_data_loc"] + r"Rider_agg.csv", index=False)
+    if save_file:
+        Rider.to_csv(config["m2m_data_loc"] + r"Rider_agg.csv", index=False)
     return Rider.to_numpy(dtype=int, na_value=999)
 
 

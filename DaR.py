@@ -68,7 +68,7 @@ while ITER_LIMIT and not (OBJ and OBJ_set and OBJ in OBJ_set):
 
     if OBJ:
         OBJ_set.add(OBJ)
-    Rider = pd.read_csv(config["m2m_data_loc"] + "Rider.csv", index_col=["ID"])
+    Rider = pd.read_csv(config["m2m_data_loc"] + "Rider_agg.csv", index_col=["ID"])
     Rider_matched = list(pd.read_csv(config["m2m_data_loc"] + "U_rd_disagg.csv").r)
     Rider = Rider.drop(Rider_matched).to_numpy(dtype=int, na_value=999)
     for r in Rider:
@@ -81,7 +81,7 @@ while ITER_LIMIT and not (OBJ and OBJ_set and OBJ in OBJ_set):
         for j in range(len(trip_mat[0]))
         if trip_mat[i][j]
     }
-    Rider = get_rider(trip_dict, config)
+    Rider = get_rider(trip_dict, config, save_file=False)
     print("trip generation finished, entering optimization model...")
 
     # Run many-to-many model
