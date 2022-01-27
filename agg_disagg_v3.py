@@ -206,6 +206,8 @@ Rider[:, 4], Rider[:, 5] = disagg_2_agg_func(Rider_disagg[:, 4]), disagg_2_agg_f
 )
 # Load Driver
 Driver = get_driver_m2m_gc(disagg_2_agg_id, config)
+print("Number of drivers: {}".format(len(Driver)))
+
 FR = {
     d: [
         (t1, t2, disagg_2_agg_id[s1], disagg_2_agg_id[s2])
@@ -332,11 +334,20 @@ while True:
         Route_D,
         OD_d,
         Driver,
-        tau_disagg,
+        tau2_disagg,
         ctr_disagg,
         agg_2_disagg_id,
         disagg_2_agg_id,
         config,
+    )
+    pickle.dump(
+        Route_D_disagg,
+        open(
+            r"Data\temp\Route_D_disagg_{}.p".format(
+                config["ITER_LIMIT_M2M_GC"] + 1 - ITER_LIMIT_M2M_GC
+            ),
+            "wb",
+        ),
     )
     if config["FIXED_ROUTE"]:
         # Update route with the fixed route schedule
@@ -453,7 +464,7 @@ Route_D_disagg = direct_disagg(
     Route_D,
     OD_d,
     Driver,
-    tau_disagg,
+    tau2_disagg,
     ctr_disagg,
     agg_2_disagg_id,
     disagg_2_agg_id,

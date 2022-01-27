@@ -6,9 +6,9 @@ from random import sample, seed
 # from collections import deque
 # from copy import deepcopy
 
-SEED = 1
-np.random.seed(seed=SEED)
-seed(SEED)
+# SEED = 1
+# np.random.seed(seed=SEED)
+# seed(SEED)
 
 
 def BFS(TN, C_init, VP):
